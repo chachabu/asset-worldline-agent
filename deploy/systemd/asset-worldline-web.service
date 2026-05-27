@@ -1,0 +1,16 @@
+[Unit]
+Description=Asset Worldline Agent Web
+After=network.target postgresql.service
+
+[Service]
+User=asset-worldline
+Group=asset-worldline
+WorkingDirectory=/opt/asset-worldline/backend
+EnvironmentFile=/etc/asset-worldline/config.env
+ExecStart=/opt/asset-worldline/backend/.venv/bin/uvicorn app.main:app --host 127.0.0.1 --port 8000
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
+

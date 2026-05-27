@@ -1,0 +1,49 @@
+[project]
+name = "asset-worldline-agent-backend"
+version = "0.1.0"
+description = "Backend for the Asset Worldline Agent research dashboard"
+requires-python = ">=3.12"
+dependencies = [
+  "beautifulsoup4>=4.12.3",
+  "fastapi>=0.115.0",
+  "feedparser>=6.0.11",
+  "httpx>=0.27.0",
+  "itsdangerous>=2.2.0",
+  "passlib[bcrypt]>=1.7.4",
+  "psycopg2-binary>=2.9.9",
+  "pydantic-settings>=2.4.0",
+  "python-dotenv>=1.0.1",
+  "python-multipart>=0.0.9",
+  "sqlalchemy>=2.0.32",
+  "trafilatura>=1.12.0",
+  "uvicorn[standard]>=0.30.6",
+]
+
+[project.optional-dependencies]
+market = [
+  "akshare>=1.14.0",
+  "pycoingecko>=3.1.0",
+  "yfinance>=0.2.43",
+]
+pdf = [
+  "pymupdf>=1.24.9",
+]
+dev = [
+  "pytest>=8.3.2",
+  "ruff>=0.6.2",
+]
+
+[build-system]
+requires = ["setuptools>=70", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["app*"]
+exclude = ["alembic*"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
