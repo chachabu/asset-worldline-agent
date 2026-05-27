@@ -15,7 +15,11 @@ router = APIRouter(prefix="/forecasts", tags=["forecasts"])
 def forecast_matrix(_: CurrentUser, db: Annotated[Session, Depends(get_db)]) -> list[dict]:
     forecasts = db.scalars(
         select(AssetForecast)
-        .options(joinedload(AssetForecast.asset_group), joinedload(AssetForecast.branch))
+        .options(
+            joinedload(AssetForecast.asset_group),
+            joinedload(AssetForecast.branch),
+            joinedload(AssetForecast.primary_asset),
+        )
         .order_by(AssetForecast.created_at.desc())
         .limit(300)
     ).all()
@@ -25,6 +29,7 @@ def forecast_matrix(_: CurrentUser, db: Annotated[Session, Depends(get_db)]) -> 
             "branch": forecast.branch.name,
             "asset_group": forecast.asset_group.name,
             "asset_group_id": forecast.asset_group_id,
+            "primary_asset": forecast.primary_asset.symbol if forecast.primary_asset else None,
             "region": forecast.region,
             "horizon": forecast.horizon,
             "direction": forecast.direction,
@@ -55,4 +60,3 @@ def create_prediction_job(
     db.add(job)
     db.commit()
     return {"ok": True, "prediction_run_id": run.id, "job_id": job.id}
-

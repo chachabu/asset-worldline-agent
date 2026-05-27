@@ -11,12 +11,15 @@ This repository contains the initial MVP scaffold:
 - FastAPI backend with session login.
 - SQLAlchemy data model for sources, news, event clusters, assets, branches, jobs, and forecasts.
 - Seeded branch records, model-role records, and first-pass asset universe.
-- Database-backed worker/scheduler skeleton.
+- Database-backed worker/scheduler.
+- Market-data snapshot service with AKShare, yfinance, Stooq, and CoinGecko fallback paths.
+- LLM provider adapter for OpenAI-compatible APIs, Anthropic, and Gemini, with structured fallback output when keys or providers are unavailable.
+- Double-branch prediction service that keeps human-scored and model-scored event inputs isolated.
 - React/Vite research dashboard.
 - Ubuntu systemd and Nginx deployment templates.
 - Full product design at `docs/superpowers/specs/2026-05-27-asset-worldline-agent-design.md`.
 
-Real market-data adapters, LLM adapters, article persistence, event clustering, and forecast generation logic are the next implementation steps. The current worker creates neutral scaffold forecasts so the matrix and job flow can be exercised.
+Article persistence, event clustering, richer model prompts, and professional market-data adapters remain next implementation steps. The current prediction service can run with real provider keys or deterministic structured fallbacks so the branch, job, snapshot, and forecast flows can be exercised early.
 
 ## Local Backend
 
@@ -28,6 +31,12 @@ pip install -e .
 cp ../.env.example .env
 python -m app.cli init-db
 uvicorn app.main:app --reload
+```
+
+For better market coverage:
+
+```bash
+pip install -e ".[market,pdf]"
 ```
 
 Development defaults create an `admin` user with password `admin` when no bootstrap password is provided and `ENVIRONMENT` is not production.
@@ -62,6 +71,24 @@ The scheduler can be started separately:
 python -m app.workers.scheduler
 ```
 
+Manual prediction and market snapshot jobs can also be created from the Web UI.
+
+## Model Providers
+
+Provider API keys are read from environment variables:
+
+```text
+OPENAI_API_KEY
+ANTHROPIC_API_KEY
+GOOGLE_API_KEY
+DEEPSEEK_API_KEY
+QWEN_API_KEY
+STEPFUN_API_KEY
+OPENROUTER_API_KEY
+```
+
+If a configured provider is disabled or missing a key, the service stores an auditable fallback response instead of failing the run.
+
 ## Production Layout
 
 Recommended paths:
@@ -87,4 +114,3 @@ asset-worldline-scheduler.service
 - Provider keys should live in `/etc/asset-worldline/config.env`.
 - The UI only configures provider/model role mapping; it does not display API keys.
 - Public deployments should run behind Nginx with HTTPS.
-

@@ -31,7 +31,11 @@ def overview(_: CurrentUser, db: Annotated[Session, Depends(get_db)]) -> dict:
     latest_run = db.scalars(select(PredictionRun).order_by(PredictionRun.created_at.desc()).limit(1)).first()
     latest_forecasts = db.scalars(
         select(AssetForecast)
-        .options(joinedload(AssetForecast.asset_group), joinedload(AssetForecast.branch))
+        .options(
+            joinedload(AssetForecast.asset_group),
+            joinedload(AssetForecast.branch),
+            joinedload(AssetForecast.primary_asset),
+        )
         .order_by(AssetForecast.created_at.desc())
         .limit(12)
     ).all()
@@ -51,6 +55,7 @@ def overview(_: CurrentUser, db: Annotated[Session, Depends(get_db)]) -> dict:
                 "id": forecast.id,
                 "asset_group": forecast.asset_group.name,
                 "asset_group_id": forecast.asset_group_id,
+                "primary_asset": forecast.primary_asset.symbol if forecast.primary_asset else None,
                 "branch": forecast.branch.name,
                 "region": forecast.region,
                 "horizon": forecast.horizon,

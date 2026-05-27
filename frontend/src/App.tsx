@@ -66,6 +66,7 @@ type Forecast = {
   id: number;
   branch: string;
   asset_group: string;
+  primary_asset?: string | null;
   region: string;
   horizon: string;
   direction: string;
@@ -271,6 +272,7 @@ function OverviewPage() {
             <thead>
               <tr>
                 <th>资产</th>
+                <th>Proxy</th>
                 <th>分支</th>
                 <th>区域</th>
                 <th>周期</th>
@@ -283,6 +285,7 @@ function OverviewPage() {
               {(overview?.latest_forecasts ?? []).map((forecast) => (
                 <tr key={forecast.id}>
                   <td>{forecast.asset_group}</td>
+                  <td>{forecast.primary_asset ?? '-'}</td>
                   <td>{forecast.branch}</td>
                   <td>{forecast.region}</td>
                   <td>{forecast.horizon}</td>
@@ -608,6 +611,7 @@ function ForecastsPage() {
             <thead>
               <tr>
                 <th>资产/板块</th>
+                <th>Proxy</th>
                 <th>分支</th>
                 <th>区域</th>
                 <th>周期</th>
@@ -622,6 +626,7 @@ function ForecastsPage() {
               {forecasts.map((forecast) => (
                 <tr key={forecast.id}>
                   <td>{forecast.asset_group}</td>
+                  <td>{forecast.primary_asset ?? '-'}</td>
                   <td>{forecast.branch}</td>
                   <td>{forecast.region}</td>
                   <td>{forecast.horizon}</td>
@@ -634,7 +639,7 @@ function ForecastsPage() {
                   <td>{forecast.rationale}</td>
                 </tr>
               ))}
-              {forecasts.length === 0 && <EmptyRow columns={9} text="暂无预测，先运行预测任务" />}
+              {forecasts.length === 0 && <EmptyRow columns={10} text="暂无预测，先运行预测任务" />}
             </tbody>
           </table>
         </div>
@@ -725,12 +730,27 @@ function ModelsPage() {
 function SystemPage() {
   const [jobs, setJobs] = useState<Job[]>([]);
 
+  const load = () => apiGet<Job[]>('/jobs').then(setJobs);
+
   useEffect(() => {
-    apiGet<Job[]>('/jobs').then(setJobs);
+    load();
   }, []);
+
+  async function refreshMarket() {
+    await apiPost('/jobs/market-snapshot');
+    load();
+  }
 
   return (
     <Page title="系统状态" subtitle="后台任务、失败原因和调度状态。">
+      <div className="toolbar">
+        <button className="primary" type="button" onClick={refreshMarket}>
+          刷新行情快照
+        </button>
+        <button className="secondary" type="button" onClick={load}>
+          刷新任务列表
+        </button>
+      </div>
       <section className="panel">
         <div className="table-wrap">
           <table>

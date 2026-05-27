@@ -2,16 +2,20 @@ import time
 from collections.abc import Callable
 
 from sqlalchemy import select
-from sqlalchemy.orm import Session, selectinload
+from sqlalchemy.orm import Session
 
 from app.core.time import utcnow
 from app.db.session import SessionLocal
-from app.models import AssetForecast, AssetGroup, Branch, Job, PredictionRun
+from app.models import Branch, Job, PredictionRun
+from app.services.market_data import MarketDataService
+from app.services.prediction_service import PredictionService
 
 
 class JobRunner:
     def __init__(self, session_factory: Callable[[], Session] = SessionLocal) -> None:
         self.session_factory = session_factory
+        self.market_data = MarketDataService()
+        self.prediction_service = PredictionService(market_data=self.market_data)
 
     def run_once(self) -> bool:
         with self.session_factory() as db:
@@ -55,7 +59,7 @@ class JobRunner:
         elif job.job_type == "fetch_source":
             self._mark_stub_complete(job, "Fetch source adapter is not wired yet.")
         elif job.job_type == "refresh_market_snapshot":
-            self._mark_stub_complete(job, "Market data adapter is not wired yet.")
+            self._refresh_market_snapshot(db, job)
         else:
             self._mark_stub_complete(job, f"No executor registered for job type {job.job_type}.")
         job.status = "succeeded"
@@ -68,39 +72,22 @@ class JobRunner:
         if not run:
             raise ValueError(f"Prediction run {prediction_run_id} not found")
         branch = db.get(Branch, run.branch_id)
-        groups = db.scalars(
-            select(AssetGroup)
-            .options(selectinload(AssetGroup.assets))
-            .where(AssetGroup.enabled.is_(True))
-            .order_by(AssetGroup.category.asc(), AssetGroup.name.asc())
-            .limit(35)
-        ).all()
+        forecast_count = self.prediction_service.run_prediction(db, run)
+        job.payload = {
+            **job.payload,
+            "branch": branch.name if branch else None,
+            "forecast_count": forecast_count,
+        }
 
-        run.status = "running"
-        run.started_at = utcnow()
-        for group in groups:
-            primary = next((asset for asset in group.assets if asset.role == "primary"), None)
-            for horizon in ("1W", "1M", "3M"):
-                db.add(
-                    AssetForecast(
-                        prediction_run_id=run.id,
-                        branch_id=run.branch_id,
-                        asset_group_id=group.id,
-                        primary_asset_id=primary.id if primary else None,
-                        region=group.region,
-                        horizon=horizon,
-                        direction="neutral",
-                        confidence=0.0,
-                        rationale=(
-                            "MVP scaffold forecast. The branch/run boundaries and forecast matrix "
-                            "are wired; real LLM discussion and market-data targets are next."
-                        ),
-                    )
-                )
-        run.status = "succeeded"
-        run.finished_at = utcnow()
-        job.payload = {**job.payload, "branch": branch.name if branch else None, "forecast_count": len(groups) * 3}
+    def _refresh_market_snapshot(self, db: Session, job: Job) -> None:
+        snapshot_type = job.payload.get("snapshot_type", "daily")
+        asset_ids = job.payload.get("asset_ids")
+        snapshot = self.market_data.create_snapshot(db, snapshot_type=snapshot_type, asset_ids=asset_ids)
+        job.payload = {
+            **job.payload,
+            "market_snapshot_id": snapshot.id,
+            "captured_at": snapshot.captured_at.isoformat(),
+        }
 
     def _mark_stub_complete(self, job: Job, message: str) -> None:
         job.payload = {**job.payload, "note": message}
-

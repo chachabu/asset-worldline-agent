@@ -30,3 +30,11 @@ def list_jobs(_: CurrentUser, db: Annotated[Session, Depends(get_db)]) -> list[d
         for job in jobs
     ]
 
+
+@router.post("/market-snapshot")
+def enqueue_market_snapshot(_: CurrentUser, db: Annotated[Session, Depends(get_db)]) -> dict:
+    job = Job(job_type="refresh_market_snapshot", payload={"snapshot_type": "manual"})
+    db.add(job)
+    db.commit()
+    db.refresh(job)
+    return {"ok": True, "job_id": job.id}
