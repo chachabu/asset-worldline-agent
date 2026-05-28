@@ -667,14 +667,20 @@ function ModelsPage() {
   const [providers, setProviders] = useState<ProviderStatus[]>([]);
   const [testing, setTesting] = useState<string | null>(null);
   const [testResults, setTestResults] = useState<Record<string, ModelTestResult>>({});
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   const load = async () => {
-    const [modelConfigs, providerPayload] = await Promise.all([
-      apiGet<ModelConfig[]>('/model-configs'),
-      apiGet<{ providers: ProviderStatus[] }>('/model-configs/providers'),
-    ]);
-    setConfigs(modelConfigs);
-    setProviders(providerPayload.providers);
+    try {
+      setLoadError(null);
+      const [modelConfigs, providerPayload] = await Promise.all([
+        apiGet<ModelConfig[]>('/model-configs'),
+        apiGet<{ providers: ProviderStatus[] }>('/model-configs/providers'),
+      ]);
+      setConfigs(modelConfigs);
+      setProviders(providerPayload.providers);
+    } catch (error) {
+      setLoadError(error instanceof Error ? error.message : '模型配置加载失败');
+    }
   };
 
   useEffect(() => {
@@ -716,6 +722,12 @@ function ModelsPage() {
 
   return (
     <Page title="模型配置" subtitle="配置各角色使用的 provider/model。API Key 从服务器环境变量读取。">
+      {loadError && (
+        <section className="panel error-panel">
+          <strong>模型配置加载失败</strong>
+          <span>{loadError}</span>
+        </section>
+      )}
       <section className="panel">
         <h2>Provider Key 状态</h2>
         <div className="provider-grid">

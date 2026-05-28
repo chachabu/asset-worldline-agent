@@ -17,6 +17,7 @@ class Settings(BaseSettings):
     secret_key: str = Field(default="change-me-before-deploy")
     session_cookie_name: str = "asset_worldline_session"
     session_max_age_seconds: int = 7 * 24 * 60 * 60
+    session_cookie_secure: bool = False
 
     database_url: str = "sqlite:///./dev.db"
     cors_origins: list[str] = ["http://localhost:5173", "http://127.0.0.1:5173"]
@@ -46,4 +47,3 @@ class Settings(BaseSettings):
 @lru_cache
 def get_settings() -> Settings:
     return Settings()
-

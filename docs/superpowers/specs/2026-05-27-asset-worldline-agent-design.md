@@ -456,6 +456,7 @@ MVP 评估：
 ```text
 DATABASE_URL=sqlite:////var/lib/asset-worldline/asset-worldline.db
 SECRET_KEY=
+SESSION_COOKIE_SECURE=false
 ADMIN_BOOTSTRAP_USER=
 ADMIN_BOOTSTRAP_PASSWORD_HASH=
 

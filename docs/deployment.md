@@ -67,9 +67,12 @@ sudo nano /etc/asset-worldline/config.env
 ```text
 DATABASE_URL=sqlite:////var/lib/asset-worldline/asset-worldline.db
 SECRET_KEY=replace-with-a-long-random-secret
+SESSION_COOKIE_SECURE=false
 ADMIN_BOOTSTRAP_USER=admin
 ADMIN_BOOTSTRAP_PASSWORD=replace-before-first-start
 ```
+
+`SESSION_COOKIE_SECURE=false` 适用于当前这种 `http://服务器IP:8000` 直连部署。如果后续通过 HTTPS 访问，应改为 `true` 并重启 Web 服务。
 
 可选 provider key：
 
@@ -253,6 +256,7 @@ Web 服务启动了但 UI 空白：
 - 确认 `ADMIN_BOOTSTRAP_USER` 和密码正确。
 - 运行 `create-admin` 重置密码。
 - 确认 `SECRET_KEY` 在重启之间保持稳定。
+- 如果登录返回成功但后续页面数据为空或接口持续 `401`，且当前使用 `http://服务器IP:8000` 访问，确认 `SESSION_COOKIE_SECURE=false`。
 
 数据库文件不存在：
 

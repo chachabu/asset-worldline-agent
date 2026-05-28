@@ -503,6 +503,14 @@ button:disabled {
   color: #b42318;
 }
 
+.error-panel {
+  display: grid;
+  gap: 6px;
+  border-color: #fecdca;
+  color: #b42318;
+  background: #fff7f7;
+}
+
 .success {
   margin-top: 10px;
   color: #067647;

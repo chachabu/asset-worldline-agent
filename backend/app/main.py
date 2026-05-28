@@ -20,7 +20,7 @@ app.add_middleware(
     session_cookie=settings.session_cookie_name,
     max_age=settings.session_max_age_seconds,
     same_site="lax",
-    https_only=settings.environment == "production",
+    https_only=settings.session_cookie_secure,
 )
 app.add_middleware(
     CORSMiddleware,
@@ -55,4 +55,3 @@ if frontend_dist.exists():
         if requested.exists() and requested.is_file():
             return FileResponse(requested)
         return FileResponse(frontend_dist / "index.html")
-
