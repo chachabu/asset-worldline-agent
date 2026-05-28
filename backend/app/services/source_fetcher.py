@@ -1,6 +1,7 @@
 import re
 from dataclasses import dataclass
-from urllib.parse import urldefrag, urljoin, urlparse
+from datetime import UTC, date, datetime, timedelta
+from urllib.parse import parse_qs, urldefrag, urlencode, urljoin, urlparse
 
 import feedparser
 import httpx
@@ -8,6 +9,12 @@ import trafilatura
 from bs4 import BeautifulSoup
 
 from app.core.config import get_settings
+
+FINNHUB_BASE_URL = "https://finnhub.io/api/v1"
+FINNHUB_MARKET_MODE = "finnhub_market_news"
+FINNHUB_COMPANY_MODE = "finnhub_company_news"
+FINNHUB_ECONOMIC_MODE = "finnhub_economic_calendar"
+FINNHUB_FETCH_MODES = {FINNHUB_MARKET_MODE, FINNHUB_COMPANY_MODE, FINNHUB_ECONOMIC_MODE}
 
 
 @dataclass(frozen=True)
@@ -106,6 +113,8 @@ def test_fetch(
 ) -> list[FetchCandidate]:
     selectors = selectors or {}
     try:
+        if fetch_mode in FINNHUB_FETCH_MODES:
+            return _fetch_finnhub(entry_url, fetch_mode, selectors)
         if fetch_mode == "rss":
             return _fetch_rss(entry_url)
         if fetch_mode in {"article", "pdf"}:
@@ -230,6 +239,275 @@ def _fetch_article(url: str) -> FetchCandidate:
     title = soup.title.get_text(strip=True) if soup.title else url
     snippet = extracted[:500] if extracted else soup.get_text(" ", strip=True)[:500]
     return FetchCandidate(title=title[:240], url=url, snippet=snippet)
+
+
+def _fetch_finnhub(entry_url: str, fetch_mode: str, selectors: dict) -> list[FetchCandidate]:
+    settings = get_settings()
+    if not settings.finnhub_api_key:
+        message = "FINNHUB_API_KEY is not configured."
+        return [
+            FetchCandidate(
+                title="Finnhub key missing",
+                url=entry_url,
+                status="failed",
+                error=message,
+            )
+        ]
+
+    query = _entry_query(entry_url)
+    with httpx.Client(
+        base_url=FINNHUB_BASE_URL,
+        timeout=settings.fetch_timeout_seconds,
+        headers={"X-Finnhub-Token": settings.finnhub_api_key},
+    ) as client:
+        if fetch_mode == FINNHUB_MARKET_MODE:
+            return _fetch_finnhub_market_news(client, entry_url, selectors, query)
+        if fetch_mode == FINNHUB_COMPANY_MODE:
+            return _fetch_finnhub_company_news(client, entry_url, selectors, query)
+        if fetch_mode == FINNHUB_ECONOMIC_MODE:
+            return _fetch_finnhub_economic_calendar(client, entry_url, selectors, query)
+    return []
+
+
+def _fetch_finnhub_market_news(
+    client: httpx.Client,
+    entry_url: str,
+    selectors: dict,
+    query: dict[str, str],
+) -> list[FetchCandidate]:
+    category = (
+        str(selectors.get("category") or query.get("category") or "").strip()
+        or _plain_entry_value(entry_url)
+        or "general"
+    )
+    response = client.get("/news", params={"category": category})
+    response.raise_for_status()
+    payload = response.json()
+    if not isinstance(payload, list):
+        return _finnhub_payload_error(entry_url, payload)
+    return _finnhub_news_candidates(payload, category=category, limit=_result_limit(selectors))
+
+
+def _fetch_finnhub_company_news(
+    client: httpx.Client,
+    entry_url: str,
+    selectors: dict,
+    query: dict[str, str],
+) -> list[FetchCandidate]:
+    symbols = _symbol_list(selectors, query, entry_url)
+    if not symbols:
+        message = "Finnhub company-news requires one or more symbols, for example: AAPL,NVDA."
+        return [
+            FetchCandidate(
+                title="Finnhub symbols missing",
+                url=entry_url,
+                status="failed",
+                error=message,
+            )
+        ]
+
+    start, end = _date_range(selectors, query, default_lookback_days=7, default_lookahead_days=0)
+    limit = _result_limit(selectors)
+    candidates: list[FetchCandidate] = []
+    for symbol in symbols:
+        response = client.get(
+            "/company-news",
+            params={"symbol": symbol, "from": start.isoformat(), "to": end.isoformat()},
+        )
+        response.raise_for_status()
+        payload = response.json()
+        if isinstance(payload, list):
+            candidates.extend(_finnhub_news_candidates(payload, symbol=symbol, limit=limit))
+        if len(candidates) >= limit:
+            break
+    return candidates[:limit]
+
+
+def _fetch_finnhub_economic_calendar(
+    client: httpx.Client,
+    entry_url: str,
+    selectors: dict,
+    query: dict[str, str],
+) -> list[FetchCandidate]:
+    start, end = _date_range(selectors, query, default_lookback_days=7, default_lookahead_days=14)
+    response = client.get(
+        "/calendar/economic",
+        params={"from": start.isoformat(), "to": end.isoformat()},
+    )
+    response.raise_for_status()
+    payload = response.json()
+    items = payload.get("economicCalendar") if isinstance(payload, dict) else None
+    if not isinstance(items, list):
+        return _finnhub_payload_error(entry_url, payload)
+
+    candidates: list[FetchCandidate] = []
+    for item in items[: _result_limit(selectors)]:
+        event = str(item.get("event") or "").strip()
+        if not event:
+            continue
+        country = str(item.get("country") or "Global").strip()
+        when = _finnhub_calendar_time(item.get("time"))
+        title = f"{country}: {event}"
+        snippet = _economic_calendar_snippet(item)
+        event_id = urlencode({"time": when or "", "country": country, "event": event})
+        candidates.append(
+            FetchCandidate(
+                title=title[:240],
+                url=f"finnhub://economic-calendar?{event_id}",
+                published_at=when,
+                snippet=snippet,
+            )
+        )
+    return candidates
+
+
+def _finnhub_news_candidates(
+    payload: list[dict],
+    *,
+    category: str | None = None,
+    symbol: str | None = None,
+    limit: int,
+) -> list[FetchCandidate]:
+    candidates: list[FetchCandidate] = []
+    for item in payload[:limit]:
+        title = str(item.get("headline") or "").strip()
+        url = str(item.get("url") or "").strip()
+        if not title or not url:
+            continue
+        source = str(item.get("source") or "Finnhub").strip()
+        topic = symbol or category
+        prefix = f"{source}"
+        if topic:
+            prefix = f"{prefix} / {topic}"
+        summary = str(item.get("summary") or "").strip()
+        snippet = f"{prefix}: {summary}" if summary else prefix
+        candidates.append(
+            FetchCandidate(
+                title=title[:240],
+                url=url,
+                published_at=_finnhub_news_time(item.get("datetime")),
+                snippet=snippet[:500],
+            )
+        )
+    return candidates
+
+
+def _entry_query(entry_url: str) -> dict[str, str]:
+    parsed = urlparse(entry_url)
+    return {key: values[-1] for key, values in parse_qs(parsed.query).items() if values}
+
+
+def _plain_entry_value(entry_url: str) -> str:
+    value = entry_url.strip()
+    if not value or "://" in value or "=" in value:
+        return ""
+    return value
+
+
+def _symbol_list(selectors: dict, query: dict[str, str], entry_url: str) -> list[str]:
+    raw_symbols = (
+        selectors.get("symbols")
+        or selectors.get("symbol")
+        or query.get("symbols")
+        or query.get("symbol")
+    )
+    if isinstance(raw_symbols, str):
+        values = raw_symbols.split(",")
+    elif isinstance(raw_symbols, list):
+        values = [str(item) for item in raw_symbols]
+    else:
+        values = _plain_entry_value(entry_url).split(",")
+    return [value.strip().upper() for value in values if value.strip()][:20]
+
+
+def _date_range(
+    selectors: dict,
+    query: dict[str, str],
+    *,
+    default_lookback_days: int,
+    default_lookahead_days: int,
+) -> tuple[date, date]:
+    today = date.today()
+    lookback_days = _int_option(
+        selectors.get("lookback_days") or query.get("lookback_days"),
+        default_lookback_days,
+    )
+    lookahead_days = _int_option(
+        selectors.get("lookahead_days") or query.get("lookahead_days"),
+        default_lookahead_days,
+    )
+    start = _date_option(selectors.get("from") or query.get("from")) or today - timedelta(
+        days=lookback_days,
+    )
+    end = _date_option(selectors.get("to") or query.get("to")) or today + timedelta(
+        days=lookahead_days,
+    )
+    return start, end
+
+
+def _result_limit(selectors: dict) -> int:
+    return max(1, min(_int_option(selectors.get("limit"), 30), 100))
+
+
+def _int_option(value: object, default: int) -> int:
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return default
+
+
+def _date_option(value: object) -> date | None:
+    if not isinstance(value, str) or not value:
+        return None
+    try:
+        return date.fromisoformat(value)
+    except ValueError:
+        return None
+
+
+def _finnhub_news_time(value: object) -> str | None:
+    try:
+        timestamp = int(value)
+    except (TypeError, ValueError):
+        return None
+    return datetime.fromtimestamp(timestamp, tz=UTC).isoformat()
+
+
+def _finnhub_calendar_time(value: object) -> str | None:
+    if not isinstance(value, str) or not value:
+        return None
+    try:
+        return datetime.fromisoformat(value.replace("Z", "+00:00")).isoformat()
+    except ValueError:
+        return value
+
+
+def _economic_calendar_snippet(item: dict) -> str:
+    parts = []
+    for label, key in (
+        ("time", "time"),
+        ("impact", "impact"),
+        ("actual", "actual"),
+        ("estimate", "estimate"),
+        ("previous", "prev"),
+        ("unit", "unit"),
+    ):
+        value = item.get(key)
+        if value not in {None, ""}:
+            parts.append(f"{label}: {value}")
+    return "; ".join(parts)
+
+
+def _finnhub_payload_error(entry_url: str, payload: object) -> list[FetchCandidate]:
+    message = f"Unexpected Finnhub response shape: {payload!r}"[:500]
+    return [
+        FetchCandidate(
+            title="Finnhub fetch failed",
+            url=entry_url,
+            status="failed",
+            error=message,
+        )
+    ]
 
 
 def _candidate_title(anchor) -> str:

@@ -121,5 +121,6 @@ asset-worldline-scheduler.service
 
 - 不要提交真实 API key。
 - Provider key 应放在 `/etc/asset-worldline/config.env`。
+- Finnhub 等数据源 API key 也应放在 `/etc/asset-worldline/config.env`，不要写入代码或文档。
 - UI 只配置 provider/model 角色映射，不展示 API key。
 - 默认部署直接监听 `0.0.0.0:8000`，只应暴露在你信任的网络或服务器安全组规则内。

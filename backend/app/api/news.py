@@ -6,15 +6,40 @@ from sqlalchemy.orm import Session
 
 from app.api.deps import CurrentUser
 from app.db.session import get_db
-from app.models import Branch, EventCluster, EventScore
+from app.models import Branch, EventCluster, EventScore, InformationSource, RawNews
 from app.schemas.common import EventScoreUpdate
 
 router = APIRouter(prefix="/news", tags=["news"])
 
 
+@router.get("/raw")
+def list_raw_news(_: CurrentUser, db: Annotated[Session, Depends(get_db)]) -> list[dict]:
+    rows = db.execute(
+        select(RawNews, InformationSource)
+        .join(InformationSource, RawNews.source_id == InformationSource.id)
+        .order_by(RawNews.fetched_at.desc())
+        .limit(200)
+    ).all()
+    return [
+        {
+            "id": raw_news.id,
+            "source": source.name,
+            "source_type": source.source_type,
+            "title": raw_news.title,
+            "url": raw_news.url,
+            "summary": raw_news.summary,
+            "status": raw_news.status,
+            "published_at": raw_news.published_at,
+            "fetched_at": raw_news.fetched_at,
+        }
+        for raw_news, source in rows
+    ]
+
+
 @router.get("/clusters")
 def list_event_clusters(_: CurrentUser, db: Annotated[Session, Depends(get_db)]) -> list[dict]:
-    clusters = db.scalars(select(EventCluster).order_by(EventCluster.created_at.desc()).limit(200)).all()
+    statement = select(EventCluster).order_by(EventCluster.created_at.desc()).limit(200)
+    clusters = db.scalars(statement).all()
     return [
         {
             "id": cluster.id,

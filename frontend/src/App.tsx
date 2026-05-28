@@ -77,6 +77,18 @@ type Forecast = {
   rationale: string | null;
 };
 
+type RawNewsItem = {
+  id: number;
+  source: string;
+  source_type: string;
+  title: string;
+  url: string;
+  summary: string | null;
+  status: string;
+  published_at: string | null;
+  fetched_at: string;
+};
+
 type ModelConfig = {
   role: string;
   provider: string;
@@ -382,6 +394,8 @@ function SourcesPage() {
             onChange={(event) => setForm({ ...form, source_type: event.target.value })}
           >
             <option value="financial_news">财经新闻</option>
+            <option value="company_news">公司新闻</option>
+            <option value="economic_calendar">经济日历</option>
             <option value="research">机构观点/研报</option>
             <option value="announcement">公司公告/IR</option>
             <option value="policy">政策/监管/央行</option>
@@ -396,10 +410,13 @@ function SourcesPage() {
             <option value="rss">RSS</option>
             <option value="article">单篇文章</option>
             <option value="pdf">PDF</option>
+            <option value="finnhub_market_news">Finnhub 市场新闻</option>
+            <option value="finnhub_company_news">Finnhub 公司新闻</option>
+            <option value="finnhub_economic_calendar">Finnhub 经济日历</option>
           </select>
           <input
             className="wide-input"
-            placeholder="入口 URL"
+            placeholder={sourceEntryPlaceholder(form.fetch_mode)}
             value={form.entry_url}
             onChange={(event) => setForm({ ...form, entry_url: event.target.value })}
           />
@@ -466,9 +483,28 @@ function SourcesPage() {
                   </td>
                   <td className="url-cell">{source.entry_url}</td>
                   <td>
-                    <button className="danger" type="button" onClick={() => deleteSource(source)}>
-                      删除
-                    </button>
+                    <div className="action-buttons">
+                      <button
+                        className="secondary"
+                        type="button"
+                        onClick={async () => {
+                          setMessage(null);
+                          setError(null);
+                          try {
+                            await apiPost(`/sources/${source.id}/fetch`);
+                            setMessage('抓取任务已创建');
+                            await load();
+                          } catch (err) {
+                            setError(err instanceof Error ? err.message : '创建抓取任务失败');
+                          }
+                        }}
+                      >
+                        抓取
+                      </button>
+                      <button className="danger" type="button" onClick={() => deleteSource(source)}>
+                        删除
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -483,14 +519,49 @@ function SourcesPage() {
 
 function NewsPage() {
   const [clusters, setClusters] = useState<any[]>([]);
+  const [rawNews, setRawNews] = useState<RawNewsItem[]>([]);
 
   useEffect(() => {
     apiGet<any[]>('/news/clusters').then(setClusters);
+    apiGet<RawNewsItem[]>('/news/raw').then(setRawNews);
   }, []);
 
   return (
     <Page title="新闻池" subtitle="去重后的事件簇会进入人工评分和自动评分分支。">
       <section className="panel">
+        <h2>原始新闻</h2>
+        <div className="table-wrap compact-table">
+          <table>
+            <thead>
+              <tr>
+                <th>标题</th>
+                <th>来源</th>
+                <th>类型</th>
+                <th>状态</th>
+                <th>摘要</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rawNews.map((item) => (
+                <tr key={item.id}>
+                  <td>
+                    <a href={item.url} target="_blank" rel="noreferrer">
+                      {item.title}
+                    </a>
+                  </td>
+                  <td>{item.source}</td>
+                  <td>{item.source_type}</td>
+                  <td>{item.status}</td>
+                  <td>{item.summary}</td>
+                </tr>
+              ))}
+              {rawNews.length === 0 && <EmptyRow columns={5} text="暂无原始新闻" />}
+            </tbody>
+          </table>
+        </div>
+      </section>
+      <section className="panel">
+        <h2>事件簇</h2>
         <div className="table-wrap">
           <table>
             <thead>
@@ -964,4 +1035,11 @@ function formatPercent(value: number | null) {
 
 function replaceAt<T>(items: T[], index: number, value: T) {
   return items.map((item, itemIndex) => (itemIndex === index ? value : item));
+}
+
+function sourceEntryPlaceholder(fetchMode: string) {
+  if (fetchMode === 'finnhub_market_news') return 'general / forex / crypto / merger';
+  if (fetchMode === 'finnhub_company_news') return 'AAPL,NVDA,MU';
+  if (fetchMode === 'finnhub_economic_calendar') return '可留空';
+  return '入口 URL';
 }

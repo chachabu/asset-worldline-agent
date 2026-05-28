@@ -39,6 +39,7 @@ class Settings(BaseSettings):
 
     fred_api_key: str | None = None
     alpha_vantage_api_key: str | None = None
+    finnhub_api_key: str | None = None
 
     fetch_timeout_seconds: float = 20.0
     job_poll_seconds: float = 5.0

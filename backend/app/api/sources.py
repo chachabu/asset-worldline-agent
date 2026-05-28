@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 
 from app.api.deps import CurrentUser
 from app.db.session import get_db
-from app.models import InformationSource, RawNews
+from app.models import InformationSource, Job, RawNews
 from app.schemas.common import (
     InformationSourceCreate,
     InformationSourceOut,
@@ -77,6 +77,22 @@ def delete_source(
     db.delete(source)
     db.commit()
     return {"ok": True}
+
+
+@router.post("/{source_id}/fetch")
+def enqueue_source_fetch(
+    source_id: int,
+    _: CurrentUser,
+    db: Annotated[Session, Depends(get_db)],
+) -> dict:
+    source = db.get(InformationSource, source_id)
+    if not source:
+        raise HTTPException(status_code=404, detail="Source not found")
+    job = Job(job_type="fetch_source", payload={"source_id": source.id, "manual": True})
+    db.add(job)
+    db.commit()
+    db.refresh(job)
+    return {"ok": True, "job_id": job.id}
 
 
 @router.post("/test", response_model=list[SourceTestCandidate])

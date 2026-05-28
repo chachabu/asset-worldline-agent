@@ -1,4 +1,5 @@
 import time
+from datetime import timedelta
 
 from sqlalchemy import select
 
@@ -9,9 +10,18 @@ from app.models import InformationSource, Job
 
 def enqueue_due_source_fetches() -> int:
     created = 0
+    now = utcnow()
     with SessionLocal() as db:
-        sources = db.scalars(select(InformationSource).where(InformationSource.enabled.is_(True))).all()
+        sources = db.scalars(
+            select(InformationSource).where(InformationSource.enabled.is_(True))
+        ).all()
         for source in sources:
+            if source.last_fetch_at:
+                next_fetch_at = source.last_fetch_at + timedelta(
+                    minutes=source.fetch_frequency_minutes,
+                )
+                if next_fetch_at > now:
+                    continue
             pending_fetch_jobs = db.scalars(
                 select(Job).where(Job.job_type == "fetch_source", Job.status == "pending")
             ).all()
@@ -21,7 +31,7 @@ def enqueue_due_source_fetches() -> int:
             )
             if existing:
                 continue
-            db.add(Job(job_type="fetch_source", payload={"source_id": source.id}, scheduled_at=utcnow()))
+            db.add(Job(job_type="fetch_source", payload={"source_id": source.id}, scheduled_at=now))
             created += 1
         db.commit()
     return created

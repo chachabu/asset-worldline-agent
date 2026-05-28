@@ -280,6 +280,11 @@ td {
   align-items: center;
 }
 
+.action-buttons {
+  display: flex;
+  gap: 8px;
+}
+
 .primary,
 .secondary,
 .danger,
