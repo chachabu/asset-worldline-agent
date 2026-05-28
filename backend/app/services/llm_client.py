@@ -51,10 +51,38 @@ class LLMClient:
             json_data = self._extract_json(text)
             if not json_data:
                 json_data = {**fallback, "raw_text": text, "parse_status": "failed"}
-            return LLMResult(provider=provider, model=model, text=text, json_data=json_data, prompt_hash=prompt_hash)
+            return LLMResult(
+                provider=provider,
+                model=model,
+                text=text,
+                json_data=json_data,
+                prompt_hash=prompt_hash,
+            )
         except Exception as exc:  # noqa: BLE001 - LLM calls must degrade into auditable fallback output
             enriched = {**fallback, "fallback_reason": str(exc), "role": role}
             return self._fallback_result(provider, model, enriched, prompt_hash)
+
+    def provider_statuses(self) -> dict[str, bool]:
+        return {
+            "openai": bool(self.settings.openai_api_key),
+            "anthropic": bool(self.settings.anthropic_api_key),
+            "google": bool(self.settings.google_api_key),
+            "deepseek": bool(self.settings.deepseek_api_key),
+            "qwen": bool(self.settings.qwen_api_key),
+            "stepfun": bool(self.settings.stepfun_api_key),
+            "openrouter": bool(self.settings.openrouter_api_key),
+        }
+
+    def test_config(self, config: ModelConfig) -> LLMResult:
+        return self.generate_structured(
+            config,
+            system_prompt=(
+                "You are testing an LLM connection. Return only JSON with keys "
+                "ok and provider."
+            ),
+            user_payload={"ping": "asset-worldline-agent"},
+            fallback={"ok": False, "provider": config.provider, "reason": "fallback"},
+        )
 
     def _call_openai_compatible(
         self,
@@ -131,7 +159,12 @@ class LLMClient:
         )
         body = {
             "systemInstruction": {"parts": [{"text": system_prompt}]},
-            "contents": [{"role": "user", "parts": [{"text": json.dumps(user_payload, ensure_ascii=False)}]}],
+            "contents": [
+                {
+                    "role": "user",
+                    "parts": [{"text": json.dumps(user_payload, ensure_ascii=False)}],
+                }
+            ],
             "generationConfig": {
                 "temperature": config.temperature,
                 "maxOutputTokens": config.max_tokens,
@@ -192,6 +225,9 @@ class LLMClient:
         )
 
     def _prompt_hash(self, system_prompt: str, user_payload: dict[str, Any]) -> str:
-        payload = system_prompt + "\n" + json.dumps(user_payload, ensure_ascii=False, sort_keys=True)
+        payload = system_prompt + "\n" + json.dumps(
+            user_payload,
+            ensure_ascii=False,
+            sort_keys=True,
+        )
         return hashlib.sha256(payload.encode("utf-8")).hexdigest()
-

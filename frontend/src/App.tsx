@@ -80,11 +80,25 @@ type Forecast = {
 type ModelConfig = {
   role: string;
   provider: string;
+  provider_key_configured: boolean;
   model_name: string;
   temperature: number;
   max_tokens: number;
   timeout_seconds: number;
   enabled: boolean;
+};
+
+type ProviderStatus = {
+  provider: string;
+  key_configured: boolean;
+};
+
+type ModelTestResult = {
+  ok: boolean;
+  provider: string;
+  model: string;
+  used_fallback: boolean;
+  message: string;
 };
 
 type Job = {
@@ -650,8 +664,18 @@ function ForecastsPage() {
 
 function ModelsPage() {
   const [configs, setConfigs] = useState<ModelConfig[]>([]);
+  const [providers, setProviders] = useState<ProviderStatus[]>([]);
+  const [testing, setTesting] = useState<string | null>(null);
+  const [testResults, setTestResults] = useState<Record<string, ModelTestResult>>({});
 
-  const load = () => apiGet<ModelConfig[]>('/model-configs').then(setConfigs);
+  const load = async () => {
+    const [modelConfigs, providerPayload] = await Promise.all([
+      apiGet<ModelConfig[]>('/model-configs'),
+      apiGet<{ providers: ProviderStatus[] }>('/model-configs/providers'),
+    ]);
+    setConfigs(modelConfigs);
+    setProviders(providerPayload.providers);
+  };
 
   useEffect(() => {
     load();
@@ -662,8 +686,49 @@ function ModelsPage() {
     load();
   }
 
+  async function test(config: ModelConfig) {
+    setTesting(config.role);
+    setTestResults((current) => {
+      const next = { ...current };
+      delete next[config.role];
+      return next;
+    });
+    try {
+      await apiPut(`/model-configs/${config.role}`, config);
+      const result = await apiPost<ModelTestResult>(`/model-configs/${config.role}/test`);
+      setTestResults((current) => ({ ...current, [config.role]: result }));
+      await load();
+    } catch (error) {
+      setTestResults((current) => ({
+        ...current,
+        [config.role]: {
+          ok: false,
+          provider: config.provider,
+          model: config.model_name,
+          used_fallback: true,
+          message: error instanceof Error ? error.message : '连接测试失败',
+        },
+      }));
+    } finally {
+      setTesting(null);
+    }
+  }
+
   return (
     <Page title="模型配置" subtitle="配置各角色使用的 provider/model。API Key 从服务器环境变量读取。">
+      <section className="panel">
+        <h2>Provider Key 状态</h2>
+        <div className="provider-grid">
+          {providers.map((provider) => (
+            <div className="provider-card" key={provider.provider}>
+              <strong>{provider.provider}</strong>
+              <span className={provider.key_configured ? 'key-status key-ok' : 'key-status key-missing'}>
+                {provider.key_configured ? '已配置' : '未配置'}
+              </span>
+            </div>
+          ))}
+        </div>
+      </section>
       <section className="panel">
         <div className="table-wrap">
           <table>
@@ -671,11 +736,13 @@ function ModelsPage() {
               <tr>
                 <th>角色</th>
                 <th>Provider</th>
+                <th>Key</th>
                 <th>Model</th>
                 <th>温度</th>
                 <th>Token</th>
                 <th>状态</th>
-                <th></th>
+                <th>测试</th>
+                <th>操作</th>
               </tr>
             </thead>
             <tbody>
@@ -689,6 +756,13 @@ function ModelsPage() {
                         setConfigs(replaceAt(configs, index, { ...config, provider: event.target.value }))
                       }
                     />
+                  </td>
+                  <td>
+                    <span
+                      className={config.provider_key_configured ? 'key-status key-ok' : 'key-status key-missing'}
+                    >
+                      {config.provider_key_configured ? '已配置' : '未配置'}
+                    </span>
                   </td>
                   <td>
                     <input
@@ -713,12 +787,28 @@ function ModelsPage() {
                   <td>{config.max_tokens}</td>
                   <td>{config.enabled ? '启用' : '停用'}</td>
                   <td>
+                    <button
+                      className="secondary"
+                      type="button"
+                      disabled={testing === config.role}
+                      onClick={() => test(config)}
+                    >
+                      {testing === config.role ? '测试中' : '保存并测试'}
+                    </button>
+                    {testResults[config.role] && (
+                      <div className={testResults[config.role].ok ? 'test-result ok' : 'test-result failed'}>
+                        {testResults[config.role].ok ? '连接正常' : testResults[config.role].message}
+                      </div>
+                    )}
+                  </td>
+                  <td>
                     <button className="secondary" type="button" onClick={() => update(config)}>
                       保存
                     </button>
                   </td>
                 </tr>
               ))}
+              {configs.length === 0 && <EmptyRow columns={9} text="暂无模型配置" />}
             </tbody>
           </table>
         </div>

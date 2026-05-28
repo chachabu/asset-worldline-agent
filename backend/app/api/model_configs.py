@@ -8,8 +8,10 @@ from sqlalchemy.orm import Session
 from app.api.deps import CurrentUser
 from app.db.session import get_db
 from app.models import ModelConfig
+from app.services.llm_client import LLMClient
 
 router = APIRouter(prefix="/model-configs", tags=["model-configs"])
+llm_client = LLMClient()
 
 
 class ModelConfigUpdate(BaseModel):
@@ -25,11 +27,13 @@ class ModelConfigUpdate(BaseModel):
 @router.get("")
 def list_model_configs(_: CurrentUser, db: Annotated[Session, Depends(get_db)]) -> list[dict]:
     configs = db.scalars(select(ModelConfig).order_by(ModelConfig.role)).all()
+    provider_statuses = llm_client.provider_statuses()
     return [
         {
             "id": config.id,
             "role": config.role,
             "provider": config.provider,
+            "provider_key_configured": provider_statuses.get(config.provider, False),
             "model_name": config.model_name,
             "temperature": config.temperature,
             "max_tokens": config.max_tokens,
@@ -57,3 +61,33 @@ def update_model_config(
     db.commit()
     return {"ok": True, "id": config.id}
 
+
+@router.get("/providers")
+def list_provider_statuses(_: CurrentUser) -> dict:
+    return {
+        "providers": [
+            {"provider": provider, "key_configured": configured}
+            for provider, configured in llm_client.provider_statuses().items()
+        ]
+    }
+
+
+@router.post("/{role}/test")
+def test_model_config(
+    role: str,
+    _: CurrentUser,
+    db: Annotated[Session, Depends(get_db)],
+) -> dict:
+    config = db.scalar(select(ModelConfig).where(ModelConfig.role == role))
+    if not config:
+        return {"ok": False, "error": "Unknown role"}
+    result = llm_client.test_config(config)
+    return {
+        "ok": not result.used_fallback and bool(result.json_data),
+        "provider": result.provider,
+        "model": result.model,
+        "used_fallback": result.used_fallback,
+        "message": result.json_data.get("fallback_reason")
+        or result.json_data.get("reason")
+        or "Connection test completed.",
+    }

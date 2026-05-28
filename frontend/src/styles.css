@@ -291,6 +291,11 @@ td {
   font-weight: 800;
 }
 
+button:disabled {
+  cursor: not-allowed;
+  opacity: 0.62;
+}
+
 .primary {
   color: #ffffff;
   background: #1f6feb;
@@ -401,6 +406,60 @@ td {
   background: #e8f3ff;
 }
 
+.provider-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 10px;
+}
+
+.provider-card {
+  min-height: 54px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid #e4e8ef;
+  border-radius: 8px;
+  background: #f7f9fc;
+}
+
+.key-status {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  padding: 0 8px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.key-ok {
+  color: #067647;
+  background: #dcfae6;
+}
+
+.key-missing {
+  color: #b42318;
+  background: #fee4e2;
+}
+
+.test-result {
+  max-width: 240px;
+  margin-top: 6px;
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.test-result.ok {
+  color: #067647;
+}
+
+.test-result.failed {
+  color: #b42318;
+}
+
 .scoring-list {
   display: grid;
   gap: 10px;
@@ -476,4 +535,3 @@ td {
     grid-template-columns: 1fr;
   }
 }
-
