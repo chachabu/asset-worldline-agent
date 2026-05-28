@@ -690,6 +690,9 @@ function AssetsPage() {
 function ForecastsPage() {
   const [forecasts, setForecasts] = useState<Forecast[]>([]);
   const [branch, setBranch] = useState<'model_scored' | 'human_scored'>('model_scored');
+  const [running, setRunning] = useState(false);
+  const [message, setMessage] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   const load = () => apiGet<Forecast[]>('/forecasts/matrix').then(setForecasts);
 
@@ -698,7 +701,20 @@ function ForecastsPage() {
   }, []);
 
   async function runPrediction() {
-    await apiPost(`/forecasts/runs?branch_name=${branch}`);
+    setRunning(true);
+    setMessage(null);
+    setError(null);
+    try {
+      const result = await apiPost<{ job_id: number; prediction_run_id: number }>(
+        `/forecasts/runs?branch_name=${branch}`,
+      );
+      setMessage(`预测任务已创建：Job #${result.job_id}`);
+      await load();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '创建预测任务失败');
+    } finally {
+      setRunning(false);
+    }
   }
 
   return (
@@ -708,14 +724,16 @@ function ForecastsPage() {
           <option value="model_scored">自动评分分支</option>
           <option value="human_scored">人工评分分支</option>
         </select>
-        <button className="primary inline" type="button" onClick={runPrediction}>
+        <button className="primary inline" type="button" disabled={running} onClick={runPrediction}>
           <Play size={16} />
-          运行预测任务
+          {running ? '创建中' : '运行预测任务'}
         </button>
         <button className="secondary" type="button" onClick={load}>
           刷新
         </button>
       </div>
+      {message && <div className="success">{message}</div>}
+      {error && <div className="error">{error}</div>}
       <section className="panel">
         <div className="table-wrap">
           <table>

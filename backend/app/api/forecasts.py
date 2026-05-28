@@ -1,6 +1,6 @@
 from typing import Annotated
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.orm import Session, joinedload
 
@@ -52,11 +52,14 @@ def create_prediction_job(
 ) -> dict:
     branch = db.scalar(select(Branch).where(Branch.name == branch_name))
     if not branch:
-        return {"ok": False, "error": "Unknown branch"}
+        raise HTTPException(status_code=404, detail="Unknown branch")
     run = PredictionRun(branch_id=branch.id, status="queued", run_reason="manual")
     db.add(run)
     db.flush()
-    job = Job(job_type="run_prediction", payload={"prediction_run_id": run.id, "branch_id": branch.id})
+    job = Job(
+        job_type="run_prediction",
+        payload={"prediction_run_id": run.id, "branch_id": branch.id},
+    )
     db.add(job)
     db.commit()
     return {"ok": True, "prediction_run_id": run.id, "job_id": job.id}
