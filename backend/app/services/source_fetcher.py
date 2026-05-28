@@ -81,6 +81,22 @@ NAV_PATH_PATTERNS = (
     "/privacy",
 )
 
+NON_ARTICLE_TEXT_PATTERNS = (
+    "newsletter:",
+    "podcast:",
+    "video:",
+)
+
+NON_ARTICLE_PATH_PATTERNS = (
+    "/audio",
+    "/live",
+    "/news/newsletters",
+    "/news/videos",
+    "/podcasts",
+    "/video",
+    "/videos",
+)
+
 
 def test_fetch(
     entry_url: str,
@@ -222,10 +238,16 @@ def _is_candidate_link(title: str, absolute_url: str) -> bool:
     title_lower = title.lower()
     if any(pattern in title_lower for pattern in NAV_TEXT_PATTERNS):
         return False
+    if any(pattern in title_lower for pattern in NON_ARTICLE_TEXT_PATTERNS):
+        return False
+    if "getty images" in title_lower and "/" in title:
+        return False
 
     parsed = urlparse(absolute_url)
     path = parsed.path.lower().rstrip("/")
     if any(path.startswith(pattern) for pattern in NAV_PATH_PATTERNS):
+        return False
+    if any(path.startswith(pattern) for pattern in NON_ARTICLE_PATH_PATTERNS):
         return False
     if path in {"", "/"}:
         return False
