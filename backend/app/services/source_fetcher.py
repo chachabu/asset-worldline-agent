@@ -111,14 +111,31 @@ def test_fetch(
         if fetch_mode in {"article", "pdf"}:
             return [_fetch_article(entry_url)]
         return _fetch_list_page(entry_url, selectors)
-    except httpx.HTTPError as exc:
+    except httpx.HTTPStatusError as exc:
+        message = f"Fetch failed: HTTP {exc.response.status_code} for {entry_url}."
+        if exc.response.status_code in {401, 403, 429}:
+            message += (
+                " The site may block automated requests; try RSS mode, article mode, "
+                "or a source-specific selector."
+            )
         return [
             FetchCandidate(
                 title="Fetch failed",
                 url=entry_url,
-                snippet=str(exc),
+                snippet=message,
                 status="failed",
-                error=str(exc),
+                error=message,
+            )
+        ]
+    except httpx.HTTPError as exc:
+        message = f"Fetch failed: {exc}"
+        return [
+            FetchCandidate(
+                title="Fetch failed",
+                url=entry_url,
+                snippet=message,
+                status="failed",
+                error=message,
             )
         ]
 
