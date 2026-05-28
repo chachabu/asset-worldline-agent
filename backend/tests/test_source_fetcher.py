@@ -18,11 +18,17 @@ def test_list_page_filters_navigation_links() -> None:
       <a href="/news/newsletters/2026-05-28/economics-daily-fed-preview">
         Newsletter: Economics Daily How Markets Read the Fed
       </a>
+      <a href="/news/audio/2026-05-28/big-take-fed-preview-podcast">
+        Listen (18:36) Big Take: How Markets Read the Fed
+      </a>
       <a href="/news/articles/2026-05-28/china-crop-belt-faces-flood-risk">
         Zhang Chang/China News Service/VCG/Getty Images
       </a>
+      <a href="/news/articles/2026-05-28/retail-brands-fight-for-mid-market">
+        JJ Guest for Bloomberg Businessweek
+      </a>
       <a href="/news/articles/2026-05-28/china-crop-belt-faces-flood-risk">
-        China Crop Belt Faces Flood Risk as Heavy Rains Arrive Early
+        Earlier China Crop Belt Faces Flood Risk as Heavy Rains Arrive Early
       </a>
       <article>
         <a href="/news/articles/2026-05-28/nvidia-sales-surge-as-ai-demand-keeps-chip-boom-alive">

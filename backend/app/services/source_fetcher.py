@@ -82,6 +82,7 @@ NAV_PATH_PATTERNS = (
 )
 
 NON_ARTICLE_TEXT_PATTERNS = (
+    "listen (",
     "newsletter:",
     "podcast:",
     "video:",
@@ -218,6 +219,7 @@ def _candidate_title(anchor) -> str:
     title = " ".join(anchor.get_text(" ", strip=True).split())
     if not title:
         title = (anchor.get("aria-label") or anchor.get("title") or "").strip()
+    title = re.sub(r"^(Earlier|Latest)\s+", "", title)
     return title
 
 
@@ -242,12 +244,14 @@ def _is_candidate_link(title: str, absolute_url: str) -> bool:
         return False
     if "getty images" in title_lower and "/" in title:
         return False
+    if " for bloomberg" in title_lower and len(title.split()) <= 6:
+        return False
 
     parsed = urlparse(absolute_url)
     path = parsed.path.lower().rstrip("/")
     if any(path.startswith(pattern) for pattern in NAV_PATH_PATTERNS):
         return False
-    if any(path.startswith(pattern) for pattern in NON_ARTICLE_PATH_PATTERNS):
+    if any(pattern in path for pattern in NON_ARTICLE_PATH_PATTERNS):
         return False
     if path in {"", "/"}:
         return False
