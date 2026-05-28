@@ -1,5 +1,5 @@
 import time
-from datetime import timedelta
+from datetime import UTC, datetime, timedelta
 
 from sqlalchemy import select
 
@@ -17,7 +17,7 @@ def enqueue_due_source_fetches() -> int:
         ).all()
         for source in sources:
             if source.last_fetch_at:
-                next_fetch_at = source.last_fetch_at + timedelta(
+                next_fetch_at = _as_aware_utc(source.last_fetch_at) + timedelta(
                     minutes=source.fetch_frequency_minutes,
                 )
                 if next_fetch_at > now:
@@ -35,6 +35,12 @@ def enqueue_due_source_fetches() -> int:
             created += 1
         db.commit()
     return created
+
+
+def _as_aware_utc(value: datetime) -> datetime:
+    if value.tzinfo:
+        return value
+    return value.replace(tzinfo=UTC)
 
 
 def main() -> None:
