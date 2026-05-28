@@ -17,9 +17,16 @@ This repository contains the initial MVP scaffold:
 - Double-branch prediction service that keeps human-scored and model-scored event inputs isolated.
 - React/Vite research dashboard.
 - Ubuntu systemd and Nginx deployment templates.
+- Architecture and deployment docs under `docs/`.
 - Full product design at `docs/superpowers/specs/2026-05-27-asset-worldline-agent-design.md`.
 
 Article persistence, event clustering, richer model prompts, and professional market-data adapters remain next implementation steps. The current prediction service can run with real provider keys or deterministic structured fallbacks so the branch, job, snapshot, and forecast flows can be exercised early.
+
+## Documentation
+
+- [Architecture](docs/architecture.md)
+- [Deployment](docs/deployment.md)
+- [Product Design](docs/superpowers/specs/2026-05-27-asset-worldline-agent-design.md)
 
 ## Local Backend
 

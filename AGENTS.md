@@ -13,6 +13,8 @@ This is a private investment-research workflow tool, not an automated trading sy
 - Backend: `backend/app`, FastAPI + SQLAlchemy.
 - Frontend: `frontend/src`, React + Vite.
 - Deployment templates: `deploy/`.
+- Architecture doc: `docs/architecture.md`.
+- Deployment runbook: `docs/deployment.md`.
 - Product design: `docs/superpowers/specs/2026-05-27-asset-worldline-agent-design.md`.
 
 ## Branch Isolation
@@ -22,4 +24,3 @@ The product requires strict separation between `human_scored` and `model_scored`
 ## Deployment Preference
 
 Target deployment is Ubuntu with systemd, PostgreSQL, and Nginx.
-
