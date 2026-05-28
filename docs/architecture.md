@@ -27,10 +27,9 @@ Asset Worldline Agent 是一个用于跨资产情景预测的私有研究仪表�
 
 ```mermaid
 flowchart LR
-    User[管理员用户] --> Nginx[Nginx 反向代理]
-    Nginx --> Web[FastAPI Web/API 服务]
+    User[管理员用户: IP:8000] --> Web[FastAPI Web/API 服务]
     Web --> Frontend[React/Vite 静态 UI]
-    Web --> DB[(PostgreSQL)]
+    Web --> DB[(SQLite 文件数据库)]
     Web --> Jobs[Jobs 表]
 
     Scheduler[Scheduler 服务] --> Jobs
@@ -61,7 +60,7 @@ flowchart LR
 | `asset-worldline-worker.service` | `python -m app.workers.worker` | 执行队列任务。市场快照和预测运行已经接入；source fetch 仍是 stub。 |
 | `asset-worldline-scheduler.service` | `python -m app.workers.scheduler` | 为计划中的入库流水线创建周期性 source-fetch 任务。 |
 
-PostgreSQL 保存所有持久状态。Nginx 将公网流量代理到 `127.0.0.1:8000` 上的 FastAPI。
+SQLite 文件保存所有持久状态，默认路径是 `/var/lib/asset-worldline/asset-worldline.db`。FastAPI 直接监听 `0.0.0.0:8000`，通过 `http://服务器IP:8000` 访问。
 
 ## 核心组件
 
@@ -84,7 +83,7 @@ flowchart TB
         Runner[JobRunner]
     end
 
-    subgraph DB[PostgreSQL 表]
+    subgraph DB[SQLite 表]
         Users[users]
         SourceTables[information_sources/raw_news/event_clusters]
         AssetTables[asset_groups/assets/market_snapshots/market_prices]
@@ -107,7 +106,7 @@ flowchart TB
 sequenceDiagram
     participant Admin as 管理端 UI
     participant API as FastAPI
-    participant DB as PostgreSQL
+    participant DB as SQLite
     participant Worker as Worker
     participant Market as MarketDataService
     participant LLM as LLMClient

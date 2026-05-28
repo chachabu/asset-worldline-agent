@@ -23,4 +23,4 @@
 
 ## 部署偏好
 
-目标部署方式是 Ubuntu + systemd + PostgreSQL + Nginx。
+目标部署方式是 Ubuntu + systemd + SQLite。默认不依赖 PostgreSQL 或 Nginx，FastAPI 直接监听 `0.0.0.0:8000`，通过 `http://服务器IP:8000` 访问。

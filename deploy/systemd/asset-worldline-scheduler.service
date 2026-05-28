@@ -1,6 +1,6 @@
 [Unit]
 Description=Asset Worldline Agent Scheduler
-After=network.target postgresql.service
+After=network.target
 
 [Service]
 User=asset-worldline
@@ -13,4 +13,3 @@ RestartSec=5
 
 [Install]
 WantedBy=multi-user.target
-

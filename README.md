@@ -16,7 +16,7 @@
 - LLM provider 适配器，支持 OpenAI-compatible APIs、Anthropic、Gemini；当 key 或 provider 不可用时会生成结构化 fallback 输出。
 - 双分支预测服务，确保 `human_scored` 与 `model_scored` 的事件输入互不污染。
 - React/Vite 研究仪表盘。
-- Ubuntu systemd 与 Nginx 部署模板。
+- Ubuntu systemd 部署模板，默认使用 SQLite 文件数据库并通过 `IP:8000` 直接访问。
 - `docs/` 下的架构与部署文档。
 - 完整产品设计文档位于 `docs/superpowers/specs/2026-05-27-asset-worldline-agent-design.md`。
 
@@ -35,10 +35,11 @@ cd backend
 python3.12 -m venv .venv
 source .venv/bin/activate
 pip install -e .
-cp ../.env.example .env
 python -m app.cli init-db
 uvicorn app.main:app --reload
 ```
+
+本地开发默认使用 `sqlite:///./dev.db`，不需要额外安装数据库。如需配置模型 key，可以在 `backend/.env` 中覆盖对应环境变量。
 
 如需更好的市场数据覆盖：
 
@@ -104,6 +105,7 @@ OPENROUTER_API_KEY
 /opt/asset-worldline
 /etc/asset-worldline/config.env
 /var/lib/asset-worldline
+/var/lib/asset-worldline/asset-worldline.db
 /var/log/asset-worldline
 ```
 
@@ -120,4 +122,4 @@ asset-worldline-scheduler.service
 - 不要提交真实 API key。
 - Provider key 应放在 `/etc/asset-worldline/config.env`。
 - UI 只配置 provider/model 角色映射，不展示 API key。
-- 对公网部署时，应放在启用 HTTPS 的 Nginx 后面。
+- 默认部署直接监听 `0.0.0.0:8000`，只应暴露在你信任的网络或服务器安全组规则内。

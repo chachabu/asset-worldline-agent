@@ -11,7 +11,7 @@ Asset Worldline Agent 是一个私有研究类 Web 服务，用于跨资产情�
 
 两条分支都会为一个受控资产池生成 1 周、1 月、3 月预测，覆盖全球宏观资产、市场指数和中国/美国行业代理资产。预测结果包括方向、当前价格、目标价、支撑/阻力、失效位、多/基准/空三种情景、证据链、模型分歧和分支对比。
 
-服务以单台 Ubuntu 应用部署，由 systemd 管理，使用 PostgreSQL 存储，并通过应用层管理员登录保护。
+服务以单台 Ubuntu 应用部署，由 systemd 管理，默认使用 SQLite 文件数据库，并通过应用层管理员登录保护。默认部署不需要 PostgreSQL 或 Nginx。
 
 ## 目标
 
@@ -22,7 +22,7 @@ Asset Worldline Agent 是一个私有研究类 Web 服务，用于跨资产情�
 - 为固定初始资产池中的约 25-35 个展示对象预测 1W、1M、3M 价格路径。
 - 将行业/主题观点绑定到可交易或可定价的代理资产，方便后续复盘。
 - 提供密集型研究仪表盘，而不是 chat-first 界面。
-- 支持 Ubuntu + systemd 服务、PostgreSQL、日志和基于环境配置的密钥管理。
+- 支持 Ubuntu + systemd 服务、SQLite 文件数据库、日志和基于环境配置的密钥管理。
 
 ## 非目标
 
@@ -39,19 +39,18 @@ Asset Worldline Agent 是一个私有研究类 Web 服务，用于跨资产情�
 
 ```text
 Ubuntu Server
-├── Nginx
 ├── asset-worldline-web.service
 ├── asset-worldline-worker.service
 ├── asset-worldline-scheduler.service
-├── PostgreSQL
 ├── /etc/asset-worldline/config.env
 ├── /var/lib/asset-worldline
+├── /var/lib/asset-worldline/asset-worldline.db
 └── /var/log/asset-worldline
 ```
 
 推荐技术栈：
 
-- 后端：FastAPI、SQLAlchemy、Alembic、PostgreSQL。
+- 后端：FastAPI、SQLAlchemy、SQLite。
 - Worker/scheduler：MVP 使用基于数据库的 job queue；后续可加入 Redis/RQ 或 Celery。
 - 前端：React + Vite。
 - 内容抽取：httpx、trafilatura/readability 风格抽取、PyMuPDF 或 pypdf、可选 Playwright fallback。
@@ -455,7 +454,7 @@ MVP 评估：
 示例 `/etc/asset-worldline/config.env`：
 
 ```text
-DATABASE_URL=
+DATABASE_URL=sqlite:////var/lib/asset-worldline/asset-worldline.db
 SECRET_KEY=
 ADMIN_BOOTSTRAP_USER=
 ADMIN_BOOTSTRAP_PASSWORD_HASH=
@@ -528,7 +527,7 @@ ALPHA_VANTAGE_API_KEY=
 
 这些选择允许在实现中调整，不需要修改产品设计：
 
-- 前端静态资源由 FastAPI 提供，还是直接由 Nginx 提供。
+- 前端静态资源默认由 FastAPI 提供；后续如要加 HTTPS 或反向代理，可以再引入 Nginx。
 - 第一版 worker 使用数据库轮询，还是轻量 queue library。
 - 具体 UI 组件库。
 - 第一版行业代理资产的精确 symbol，只要存在 theme-to-primary-proxy 映射。
