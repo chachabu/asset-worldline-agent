@@ -2,6 +2,27 @@
 
 Asset Worldline Agent is a private research dashboard for cross-asset scenario forecasting. It is not an automated trading system.
 
+## Current Implementation State
+
+Implemented now:
+
+- Admin session login.
+- Information-source CRUD and test fetch.
+- Database schema for raw news, event clusters, branch scores, market snapshots, model outputs, and forecasts.
+- Market snapshot jobs through AKShare, yfinance, Stooq, and CoinGecko fallback paths.
+- LLM provider calls with structured fallback output.
+- Branch-isolated prediction runs for `human_scored` and `model_scored`.
+- Forecast matrix and system job UI.
+
+Not wired yet:
+
+- Scheduled article persistence from configured sources.
+- Raw-news deduplication and event clustering jobs.
+- PDF persistence and full extraction pipeline.
+- Rich source-health dashboards.
+
+The diagrams below show the intended architecture. Components marked as not wired above exist as schema, UI, or test-fetch scaffolding but are not complete production ingestion flows yet.
+
 ## System Diagram
 
 ```mermaid
@@ -16,7 +37,7 @@ flowchart LR
     Worker[Worker Service] --> Jobs
     Worker --> DB
 
-    Worker --> Sources[Configured Websites/RSS/PDF]
+    Worker -. planned fetch_source .-> Sources[Configured Websites/RSS/PDF]
     Worker --> MarketData[Market Data Providers]
     Worker --> LLMs[LLM Providers]
 
@@ -37,8 +58,8 @@ The production deployment uses three systemd services:
 | Service | Entry Point | Purpose |
 |---|---|---|
 | `asset-worldline-web.service` | `uvicorn app.main:app` | Serves API, sessions, and built frontend assets. |
-| `asset-worldline-worker.service` | `python -m app.workers.worker` | Executes queued jobs: market snapshots and prediction runs. |
-| `asset-worldline-scheduler.service` | `python -m app.workers.scheduler` | Enqueues recurring source-fetch jobs. |
+| `asset-worldline-worker.service` | `python -m app.workers.worker` | Executes queued jobs. Market snapshots and prediction runs are wired; source fetch is still a stub. |
+| `asset-worldline-scheduler.service` | `python -m app.workers.scheduler` | Enqueues recurring source-fetch jobs for the planned ingestion pipeline. |
 
 PostgreSQL stores all durable state. Nginx proxies public traffic to FastAPI on `127.0.0.1:8000`.
 
@@ -56,7 +77,7 @@ flowchart TB
     end
 
     subgraph Services[Backend Services]
-        Fetcher[Source Fetcher]
+        Fetcher[Source Fetcher: test fetch wired, persistence planned]
         Market[MarketDataService]
         LLM[LLMClient]
         Predictor[PredictionService]
@@ -73,14 +94,14 @@ flowchart TB
     end
 
     API --> DB
-    Runner --> Fetcher
+    Runner -. fetch_source stub .-> Fetcher
     Runner --> Market
     Runner --> Predictor
     Predictor --> LLM
     Services --> DB
 ```
 
-## Data Flow
+## Forecast Data Flow
 
 ```mermaid
 sequenceDiagram
@@ -91,7 +112,7 @@ sequenceDiagram
     participant Market as MarketDataService
     participant LLM as LLMClient
 
-    Admin->>API: Add information source / score events / trigger run
+    Admin->>API: Score events / trigger run
     API->>DB: Store source, score, or job
     Worker->>DB: Claim pending job
     Worker->>Market: Refresh prediction-base market snapshot
@@ -193,4 +214,3 @@ The React/Vite frontend currently exposes:
 - System jobs and manual market snapshot trigger.
 
 FastAPI serves `frontend/dist` in production when the frontend is built.
-

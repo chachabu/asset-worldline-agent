@@ -2,7 +2,7 @@
 
 Private cross-asset scenario forecasting dashboard.
 
-The service ingests user-specified websites, clusters news/events, keeps human-scored and model-scored branches isolated, and prepares 1W/1M/3M forecasts for macro assets, indexes, and China/US sector proxies.
+The service is designed to ingest user-specified websites, cluster news/events, keep human-scored and model-scored branches isolated, and prepare 1W/1M/3M forecasts for macro assets, indexes, and China/US sector proxies.
 
 ## Current Status
 
@@ -20,7 +20,7 @@ This repository contains the initial MVP scaffold:
 - Architecture and deployment docs under `docs/`.
 - Full product design at `docs/superpowers/specs/2026-05-27-asset-worldline-agent-design.md`.
 
-Article persistence, event clustering, richer model prompts, and professional market-data adapters remain next implementation steps. The current prediction service can run with real provider keys or deterministic structured fallbacks so the branch, job, snapshot, and forecast flows can be exercised early.
+Information-source CRUD and test fetch are implemented, but scheduled article persistence and event clustering are not wired yet. Article persistence, event clustering, richer model prompts, and professional market-data adapters remain next implementation steps. The current prediction service can run with real provider keys or deterministic structured fallbacks so the branch, job, snapshot, and forecast flows can be exercised early.
 
 ## Documentation
 
