@@ -1,26 +1,26 @@
-# Asset Worldline Agent Notes
+# Asset Worldline Agent 项目说明
 
-This is a private investment-research workflow tool, not an automated trading system.
+这是一个私有投资研究工作流工具，不是自动交易系统。
 
-## Safety
+## 安全边界
 
-- Never commit real API keys, market-data credentials, cookies, or paid-content exports.
-- Treat `/etc/asset-worldline/config.env`, local `.env` files, logs, PDF downloads, and extracted articles as private data.
-- Do not add trade execution features unless explicitly requested.
+- 不要提交真实 API key、市场数据凭证、cookie 或付费内容导出。
+- 将 `/etc/asset-worldline/config.env`、本地 `.env` 文件、日志、PDF 下载和抽取后的文章视为私有数据。
+- 除非用户明确要求，不要添加交易执行能力。
 
-## Architecture
+## 架构
 
-- Backend: `backend/app`, FastAPI + SQLAlchemy.
-- Frontend: `frontend/src`, React + Vite.
-- Deployment templates: `deploy/`.
-- Architecture doc: `docs/architecture.md`.
-- Deployment runbook: `docs/deployment.md`.
-- Product design: `docs/superpowers/specs/2026-05-27-asset-worldline-agent-design.md`.
+- 后端：`backend/app`，FastAPI + SQLAlchemy。
+- 前端：`frontend/src`，React + Vite。
+- 部署模板：`deploy/`。
+- 架构文档：`docs/architecture.md`。
+- 部署手册：`docs/deployment.md`。
+- 产品设计：`docs/superpowers/specs/2026-05-27-asset-worldline-agent-design.md`。
 
-## Branch Isolation
+## 分支隔离
 
-The product requires strict separation between `human_scored` and `model_scored` branches. Do not let model-scored prompts, scores, forecasts, or evaluations read human scores, and do not let human-branch forecasts include unscored events.
+产品要求 `human_scored` 与 `model_scored` 两条分支严格隔离。不要让模型评分分支的 prompt、评分、预测或评估读取人工评分，也不要让人工分支预测包含未被人工评分的事件。
 
-## Deployment Preference
+## 部署偏好
 
-Target deployment is Ubuntu with systemd, PostgreSQL, and Nginx.
+目标部署方式是 Ubuntu + systemd + PostgreSQL + Nginx。

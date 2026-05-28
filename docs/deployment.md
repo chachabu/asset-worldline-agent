@@ -1,17 +1,17 @@
-# Deployment
+# 部署
 
-This guide deploys Asset Worldline Agent to a single Ubuntu server with PostgreSQL, systemd, and Nginx.
+这份指南用于把 Asset Worldline Agent 部署到单台 Ubuntu 服务器，依赖 PostgreSQL、systemd 和 Nginx。
 
-## Target Layout
+## 目标目录
 
 ```text
-/opt/asset-worldline              # application checkout
-/etc/asset-worldline/config.env   # secrets and runtime config
-/var/lib/asset-worldline          # private runtime data
-/var/log/asset-worldline          # optional log directory
+/opt/asset-worldline              # 应用代码目录
+/etc/asset-worldline/config.env   # 密钥和运行时配置
+/var/lib/asset-worldline          # 私有运行时数据
+/var/log/asset-worldline          # 可选日志目录
 ```
 
-systemd services:
+systemd 服务：
 
 ```text
 asset-worldline-web.service
@@ -19,7 +19,7 @@ asset-worldline-worker.service
 asset-worldline-scheduler.service
 ```
 
-## 1. Install System Packages
+## 1. 安装系统包
 
 ```bash
 sudo apt update
@@ -28,9 +28,9 @@ sudo apt install -y \
   python3 python3-venv python3-pip nodejs npm
 ```
 
-Python `3.12+` is recommended because the backend package declares `requires-python >=3.12`.
+建议使用 Python `3.12+`，因为后端包声明了 `requires-python >=3.12`。
 
-## 2. Create App User and Directories
+## 2. 创建应用用户和目录
 
 ```bash
 sudo useradd --system --create-home --shell /usr/sbin/nologin asset-worldline 2>/dev/null || true
@@ -38,21 +38,21 @@ sudo mkdir -p /opt/asset-worldline /etc/asset-worldline /var/lib/asset-worldline
 sudo chown -R asset-worldline:asset-worldline /opt/asset-worldline /var/lib/asset-worldline /var/log/asset-worldline
 ```
 
-## 3. Clone the Repository
+## 3. Clone 仓库
 
 ```bash
 sudo -u asset-worldline git clone git@github.com:chachabu/asset-worldline-agent.git /opt/asset-worldline
 ```
 
-If the server does not have GitHub SSH deploy access, clone with HTTPS or copy a release tarball instead.
+如果服务器没有 GitHub SSH deploy access，可以改用 HTTPS clone，或复制 release tarball。
 
-## 4. Create PostgreSQL Database
+## 4. 创建 PostgreSQL 数据库
 
 ```bash
 sudo -u postgres psql
 ```
 
-Inside `psql`:
+在 `psql` 内执行：
 
 ```sql
 CREATE USER asset_worldline WITH PASSWORD 'change-this-password';
@@ -60,16 +60,16 @@ CREATE DATABASE asset_worldline OWNER asset_worldline;
 \q
 ```
 
-## 5. Configure Environment
+## 5. 配置环境
 
-Create `/etc/asset-worldline/config.env`:
+创建 `/etc/asset-worldline/config.env`：
 
 ```bash
 sudo install -o root -g asset-worldline -m 0640 /opt/asset-worldline/.env.example /etc/asset-worldline/config.env
 sudo nano /etc/asset-worldline/config.env
 ```
 
-Minimum required values:
+最低必填值：
 
 ```text
 DATABASE_URL=postgresql+psycopg2://asset_worldline:change-this-password@127.0.0.1:5432/asset_worldline
@@ -78,7 +78,7 @@ ADMIN_BOOTSTRAP_USER=admin
 ADMIN_BOOTSTRAP_PASSWORD=replace-before-first-start
 ```
 
-Optional provider keys:
+可选 provider key：
 
 ```text
 OPENAI_API_KEY=
@@ -92,9 +92,9 @@ FRED_API_KEY=
 ALPHA_VANTAGE_API_KEY=
 ```
 
-Do not commit this file.
+不要提交这个文件。
 
-## 6. Install Backend Dependencies
+## 6. 安装后端依赖
 
 ```bash
 cd /opt/asset-worldline/backend
@@ -103,13 +103,13 @@ sudo -u asset-worldline .venv/bin/pip install --upgrade pip
 sudo -u asset-worldline .venv/bin/pip install -e ".[market,pdf]"
 ```
 
-If market/PDF extras are slow or unavailable, use the minimal install first:
+如果 market/PDF extras 安装较慢或暂时不可用，可以先使用最小安装：
 
 ```bash
 sudo -u asset-worldline .venv/bin/pip install -e .
 ```
 
-## 7. Build Frontend
+## 7. 构建前端
 
 ```bash
 cd /opt/asset-worldline/frontend
@@ -117,29 +117,29 @@ sudo -u asset-worldline npm install
 sudo -u asset-worldline npm run build
 ```
 
-The built files are written to:
+构建产物会写入：
 
 ```text
 /opt/asset-worldline/frontend/dist
 ```
 
-FastAPI serves these files in production.
+生产环境由 FastAPI 提供这些文件。
 
-## 8. Initialize Database
+## 8. 初始化数据库
 
 ```bash
 cd /opt/asset-worldline/backend
 sudo -u asset-worldline bash -lc 'set -a; source /etc/asset-worldline/config.env; set +a; .venv/bin/python -m app.cli init-db'
 ```
 
-To rotate or create the admin password later:
+后续如需轮换或创建管理员密码：
 
 ```bash
 cd /opt/asset-worldline/backend
 sudo -u asset-worldline bash -lc 'set -a; source /etc/asset-worldline/config.env; set +a; .venv/bin/python -m app.cli create-admin --username admin --password "new-password"'
 ```
 
-## 9. Install systemd Services
+## 9. 安装 systemd 服务
 
 ```bash
 sudo cp /opt/asset-worldline/deploy/systemd/asset-worldline-*.service /etc/systemd/system/
@@ -149,7 +149,7 @@ sudo systemctl enable --now asset-worldline-worker.service
 sudo systemctl enable --now asset-worldline-scheduler.service
 ```
 
-Check status:
+查看状态：
 
 ```bash
 systemctl status asset-worldline-web.service
@@ -157,7 +157,7 @@ systemctl status asset-worldline-worker.service
 systemctl status asset-worldline-scheduler.service
 ```
 
-Logs:
+查看日志：
 
 ```bash
 journalctl -u asset-worldline-web.service -f
@@ -165,7 +165,7 @@ journalctl -u asset-worldline-worker.service -f
 journalctl -u asset-worldline-scheduler.service -f
 ```
 
-## 10. Configure Nginx
+## 10. 配置 Nginx
 
 ```bash
 sudo cp /opt/asset-worldline/deploy/nginx/asset-worldline.conf /etc/nginx/sites-available/asset-worldline.conf
@@ -174,37 +174,37 @@ sudo nginx -t
 sudo systemctl reload nginx
 ```
 
-The template listens on port `80` and proxies to `127.0.0.1:8000`.
+模板监听 `80` 端口，并代理到 `127.0.0.1:8000`。
 
-For public deployment, add HTTPS with Certbot or your existing certificate automation before exposing the service.
+对公网部署时，在暴露服务前使用 Certbot 或已有证书自动化配置 HTTPS。
 
-## 11. Smoke Test
+## 11. 冒烟测试
 
-Local server checks:
+本机服务检查：
 
 ```bash
 curl http://127.0.0.1:8000/health
 curl http://127.0.0.1/health
 ```
 
-Expected:
+期望输出：
 
 ```json
 {"status":"ok"}
 ```
 
-Then open the server URL in a browser and log in with the configured admin account.
+然后在浏览器打开服务器 URL，并使用配置好的管理员账号登录。
 
-Recommended first UI checks:
+推荐的第一轮 UI 检查：
 
-1. Open `System Status` and enqueue a market snapshot.
-2. Open `Forecast Matrix` and run `model_scored`.
-3. Confirm a job appears in `System Status`.
-4. Confirm forecast rows appear after the worker completes the job.
+1. 打开 `System Status`，入队一个市场快照任务。
+2. 打开 `Forecast Matrix`，运行 `model_scored`。
+3. 确认 `System Status` 中出现任务。
+4. Worker 完成任务后，确认预测行已出现。
 
-## 12. Common Operations
+## 12. 常用操作
 
-Restart after code or config changes:
+代码或配置变更后重启：
 
 ```bash
 sudo systemctl restart asset-worldline-web.service
@@ -212,7 +212,7 @@ sudo systemctl restart asset-worldline-worker.service
 sudo systemctl restart asset-worldline-scheduler.service
 ```
 
-Pull latest code:
+拉取最新代码：
 
 ```bash
 cd /opt/asset-worldline
@@ -225,40 +225,40 @@ sudo -u asset-worldline npm run build
 sudo systemctl restart asset-worldline-web.service asset-worldline-worker.service asset-worldline-scheduler.service
 ```
 
-Backup database:
+备份数据库：
 
 ```bash
 sudo -u postgres pg_dump asset_worldline > asset_worldline_$(date +%F).sql
 ```
 
-Backup runtime data:
+备份运行时数据：
 
 ```bash
 sudo tar -czf asset_worldline_data_$(date +%F).tar.gz /var/lib/asset-worldline
 ```
 
-## Troubleshooting
+## 故障排查
 
-Web service starts but UI is blank:
+Web 服务启动了但 UI 空白：
 
-- Run `npm run build` under `/opt/asset-worldline/frontend`.
-- Confirm `/opt/asset-worldline/frontend/dist/index.html` exists.
-- Check `journalctl -u asset-worldline-web.service -n 200`.
+- 在 `/opt/asset-worldline/frontend` 下运行 `npm run build`。
+- 确认 `/opt/asset-worldline/frontend/dist/index.html` 存在。
+- 查看 `journalctl -u asset-worldline-web.service -n 200`。
 
-Login fails:
+登录失败：
 
-- Confirm `ADMIN_BOOTSTRAP_USER` and password are correct.
-- Run `create-admin` to reset the password.
-- Confirm `SECRET_KEY` is stable between restarts.
+- 确认 `ADMIN_BOOTSTRAP_USER` 和密码正确。
+- 运行 `create-admin` 重置密码。
+- 确认 `SECRET_KEY` 在重启之间保持稳定。
 
-Market snapshot job fails:
+市场快照任务失败：
 
-- Check worker logs with `journalctl -u asset-worldline-worker.service -n 200`.
-- Confirm optional dependencies were installed with `pip install -e ".[market,pdf]"`.
-- Some free providers may intermittently fail; failed quote rows are stored with `fetch_status`.
+- 用 `journalctl -u asset-worldline-worker.service -n 200` 查看 worker 日志。
+- 确认可选依赖已通过 `pip install -e ".[market,pdf]"` 安装。
+- 部分免费 provider 可能间歇失败；失败报价行会带 `fetch_status` 存储。
 
-LLM output falls back instead of calling a provider:
+LLM 输出进入 fallback 而不是调用 provider：
 
-- Confirm the role in Model Config uses a supported provider.
-- Confirm the corresponding API key exists in `/etc/asset-worldline/config.env`.
-- Restart the web and worker services after changing provider keys.
+- 确认 Model Config 中该角色使用的是支持的 provider。
+- 确认对应 API key 存在于 `/etc/asset-worldline/config.env`。
+- 修改 provider key 后重启 web 和 worker 服务。

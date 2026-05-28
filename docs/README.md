@@ -1,8 +1,7 @@
-# Asset Worldline Agent Docs
+# Asset Worldline Agent 文档
 
-Start here:
+从这里开始：
 
-- [Architecture](architecture.md) - service layout, data flow, branch isolation, and Mermaid diagrams.
-- [Deployment](deployment.md) - Ubuntu, PostgreSQL, systemd, Nginx, and operational commands.
-- [Product Design](superpowers/specs/2026-05-27-asset-worldline-agent-design.md) - full MVP design spec.
-
+- [架构](architecture.md) - 服务结构、数据流、分支隔离和 Mermaid 图。
+- [部署](deployment.md) - Ubuntu、PostgreSQL、systemd、Nginx 和运维命令。
+- [产品设计](superpowers/specs/2026-05-27-asset-worldline-agent-design.md) - 完整 MVP 设计规格。

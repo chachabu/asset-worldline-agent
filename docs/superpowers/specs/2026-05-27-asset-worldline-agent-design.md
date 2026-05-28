@@ -1,41 +1,41 @@
-# Asset Worldline Agent Design
+# Asset Worldline Agent 设计
 
-Date: 2026-05-27
+日期：2026-05-27
 
-## Summary
+## 摘要
 
-Asset Worldline Agent is a private research web service for cross-asset scenario forecasting. It ingests news, research notes, announcements, policy updates, and industry data from user-specified websites, then runs two isolated scoring branches:
+Asset Worldline Agent 是一个私有研究类 Web 服务，用于跨资产情景预测。它从用户指定的网站接入新闻、研报、公告、政策更新和行业数据，然后运行两条互相隔离的评分分支：
 
-- Human-scored branch: only user-scored event clusters can affect forecasts.
-- Model-scored branch: all event clusters are scored automatically by an LLM and never read human scores.
+- 人工评分分支：只有用户评分后的事件簇可以影响预测。
+- 模型评分分支：所有事件簇由 LLM 自动评分，并且永远不能读取人工评分。
 
-Both branches produce 1-week, 1-month, and 3-month forecasts for a controlled universe of global macro assets, market indexes, and China/US sector proxies. Forecasts include direction, current price, target price, support/resistance, invalidation levels, bull/base/bear scenarios, evidence chains, model disagreements, and branch comparisons.
+两条分支都会为一个受控资产池生成 1 周、1 月、3 月预测，覆盖全球宏观资产、市场指数和中国/美国行业代理资产。预测结果包括方向、当前价格、目标价、支撑/阻力、失效位、多/基准/空三种情景、证据链、模型分歧和分支对比。
 
-The service is deployed as a single-server Ubuntu application managed by systemd, backed by PostgreSQL, and protected by application-level admin login.
+服务以单台 Ubuntu 应用部署，由 systemd 管理，使用 PostgreSQL 存储，并通过应用层管理员登录保护。
 
-## Goals
+## 目标
 
-- Let the user configure concrete websites as information sources.
-- Normalize articles, PDFs, and RSS items into deduplicated event clusters.
-- Keep human-scored and model-scored branches strictly isolated.
-- Use three specialist LLM roles plus a judge model to produce structured forecasts.
-- Forecast 1W, 1M, and 3M price paths for a fixed initial universe of about 25-35 display objects.
-- Bind sector/theme opinions to tradable or priceable proxy assets so forecasts can be reviewed later.
-- Provide a dense research dashboard rather than a chat-first interface.
-- Support Ubuntu deployment with systemd services, PostgreSQL, logs, and environment-based secrets.
+- 允许用户配置具体网站作为信息源。
+- 将文章、PDF、RSS item 归一化为去重后的事件簇。
+- 保持人工评分分支和模型评分分支严格隔离。
+- 使用三个专家 LLM 角色加一个 judge 模型生成结构化预测。
+- 为固定初始资产池中的约 25-35 个展示对象预测 1W、1M、3M 价格路径。
+- 将行业/主题观点绑定到可交易或可定价的代理资产，方便后续复盘。
+- 提供密集型研究仪表盘，而不是 chat-first 界面。
+- 支持 Ubuntu + systemd 服务、PostgreSQL、日志和基于环境配置的密钥管理。
 
-## Non-Goals
+## 非目标
 
-- No automated trading or order execution.
-- No high-frequency or tick-level market data.
-- No paid-wall, captcha, login bypass, or aggressive anti-bot circumvention.
-- No full multi-user team workflow in the first version.
-- No redistributing full copyrighted research content as a product feature.
-- No guarantee that model-generated targets are investment advice.
+- 不做自动交易或下单执行。
+- 不接入高频或 tick 级市场数据。
+- 不绕过付费墙、验证码、登录限制，也不做激进反爬规避。
+- 第一版不做完整的多用户团队工作流。
+- 不把完整版权研报内容作为产品功能重新分发。
+- 不保证模型生成的目标价构成投资建议。
 
-## Deployment Shape
+## 部署形态
 
-The first version runs as a single-server web service:
+第一版作为单机 Web 服务运行：
 
 ```text
 Ubuntu Server
@@ -49,410 +49,410 @@ Ubuntu Server
 └── /var/log/asset-worldline
 ```
 
-Recommended stack:
+推荐技术栈：
 
-- Backend: FastAPI, SQLAlchemy, Alembic, PostgreSQL.
-- Worker/scheduler: database-backed job queue for MVP; Redis/RQ or Celery can be added later.
-- Frontend: React + Vite.
-- Extraction: httpx, trafilatura/readability-style extraction, PyMuPDF or pypdf, optional Playwright fallback.
-- Market data: yfinance, Stooq, AKShare, CoinGecko/Binance, FRED, and limited Alpha Vantage validation.
+- 后端：FastAPI、SQLAlchemy、Alembic、PostgreSQL。
+- Worker/scheduler：MVP 使用基于数据库的 job queue；后续可加入 Redis/RQ 或 Celery。
+- 前端：React + Vite。
+- 内容抽取：httpx、trafilatura/readability 风格抽取、PyMuPDF 或 pypdf、可选 Playwright fallback。
+- 市场数据：yfinance、Stooq、AKShare、CoinGecko/Binance、FRED，以及有限的 Alpha Vantage 校验。
 
-## Authentication
+## 认证
 
-The first version uses application-level admin login:
+第一版使用应用层管理员登录：
 
-- Username/password login.
-- Passwords stored as argon2 or bcrypt hashes.
-- Session cookie with configurable lifetime.
-- One admin user for MVP.
-- No registration, password reset, OAuth, or roles.
+- 用户名/密码登录。
+- 密码以 argon2 或 bcrypt hash 存储。
+- 带可配置生命周期的 session cookie。
+- MVP 阶段只有一个管理员用户。
+- 不做注册、密码重置、OAuth 或角色权限。
 
-All pages and API routes require authentication except login and health checks. Sensitive actions require an authenticated admin session:
+除登录和 health check 外，所有页面和 API 路由都要求认证。敏感操作必须有已认证的管理员 session：
 
-- Edit information sources.
-- Configure model roles.
-- Trigger forecasts.
-- Edit asset universe.
-- Delete or disable records.
+- 编辑信息源。
+- 配置模型角色。
+- 触发预测。
+- 编辑资产池。
+- 删除或禁用记录。
 
-Provider API keys are read from server environment/config files and are never displayed in clear text in the UI.
+Provider API key 从服务器环境变量或配置文件读取，UI 中永不明文展示。
 
-## Information Sources
+## 信息源
 
-Users add concrete websites from the UI. Each source has:
+用户从 UI 添加具体网站。每个 source 包含：
 
-- Name.
-- Source type: financial news, institution/research, company announcement/IR, policy/regulator/central bank, industry association/data, macro calendar, or other.
-- Entry URL.
-- Fetch mode: RSS, list page, article URL, or PDF URL.
-- Language and region.
-- Default tags.
-- Source weight.
-- Fetch frequency.
-- Enabled/disabled state.
-- Optional browser-rendering flag.
-- Optional CSS selectors and URL include/exclude rules.
+- 名称。
+- 来源类型：财经新闻、机构/研究、公司公告/IR、政策/监管/央行、行业协会/数据、宏观日历或其他。
+- 入口 URL。
+- 抓取模式：RSS、列表页、文章 URL 或 PDF URL。
+- 语言和地区。
+- 默认标签。
+- 来源权重。
+- 抓取频率。
+- 启用/禁用状态。
+- 可选的浏览器渲染开关。
+- 可选 CSS selector 和 URL include/exclude 规则。
 
-The source page must include a "test fetch" action that shows candidate articles, timestamps, links, text snippets, and extraction errors before the source is trusted.
+信息源页面必须提供 "test fetch" 操作，在信任该来源前展示候选文章、时间戳、链接、文本片段和抽取错误。
 
-Supported in MVP:
+MVP 支持：
 
-- RSS feeds.
-- Public list pages.
-- Public article pages.
-- Manual single-link ingestion.
-- Basic PDF text extraction.
+- RSS feed。
+- 公开列表页。
+- 公开文章页。
+- 手动单链接入库。
+- 基础 PDF 文本抽取。
 
-Not supported in MVP:
+MVP 不支持：
 
-- Login-only content.
-- Paid-wall content.
-- Captcha.
-- Strong Cloudflare or similar anti-bot flows.
-- WeChat public account scraping.
-- App-only content.
+- 仅登录可见内容。
+- 付费墙内容。
+- 验证码。
+- 强 Cloudflare 或类似反爬流程。
+- 微信公众号抓取。
+- 仅 App 内可见内容。
 
-## News Normalization
+## 新闻归一化
 
-Fetched content is normalized into `raw_news` records:
+抓取内容会归一化为 `raw_news` 记录：
 
-- Title.
-- Source.
-- Source type.
-- URL and canonical URL.
-- Published time.
-- Fetched time.
-- Language and region.
-- Raw and extracted text.
-- Summary.
-- Content hash.
-- Extraction status.
+- 标题。
+- 来源。
+- 来源类型。
+- URL 和 canonical URL。
+- 发布时间。
+- 抓取时间。
+- 语言和地区。
+- 原始文本和抽取文本。
+- 摘要。
+- 内容 hash。
+- 抽取状态。
 
-Raw news is deduplicated and clustered:
+原始新闻会被去重并聚类：
 
-1. Normalize URLs.
-2. Deduplicate by URL and content hash.
-3. Cluster similar titles and summaries.
-4. Produce an `event_cluster`.
+1. 归一化 URL。
+2. 按 URL 和内容 hash 去重。
+3. 聚类相似标题和摘要。
+4. 生成 `event_cluster`。
 
-Event clusters store:
+事件簇存储：
 
-- Canonical title.
-- Earliest and latest publish time.
-- Source count.
-- Source types.
-- Representative article.
-- Neutral summary.
-- Related assets/themes candidates.
-- Member articles.
+- 标准标题。
+- 最早和最晚发布时间。
+- 来源数量。
+- 来源类型。
+- 代表文章。
+- 中性摘要。
+- 相关资产/主题候选。
+- 成员文章。
 
-Neutral extraction such as summary, facts, entities, companies, tickers, sectors, and possible affected regions may be shared by both branches. Importance scores, ranking, forecast inputs, model outputs, and forecast results must remain branch-specific.
+中性抽取结果可以被两条分支共享，例如摘要、事实、实体、公司、ticker、行业和可能受影响地区。重要性评分、排序、预测输入、模型输出和预测结果必须保持分支专属。
 
-## Asset Universe
+## 资产池
 
-The first version uses about 25-35 display objects.
+第一版使用约 25-35 个展示对象。
 
-Display objects are grouped into:
+展示对象分为：
 
-- Macro assets.
-- Market indexes.
-- Sector/theme groups.
+- 宏观资产。
+- 市场指数。
+- 行业/主题组。
 
-Macro assets:
+宏观资产：
 
-- US dollar index.
-- US 10-year Treasury yield.
-- Gold.
-- Crude oil.
-- Copper.
-- BTC.
-- ETH.
-- USD/CNH or RMB exchange rate.
-- VIX or equivalent risk proxy.
+- 美元指数。
+- 美国 10 年期国债收益率。
+- 黄金。
+- 原油。
+- 铜。
+- BTC。
+- ETH。
+- USD/CNH 或人民币汇率。
+- VIX 或等价风险代理。
 
-Reference indexes:
+参考指数：
 
-- S&P 500.
-- Nasdaq 100.
-- CSI 300.
-- ChiNext or STAR/technology proxy.
-- Hang Seng Tech.
+- S&P 500。
+- Nasdaq 100。
+- CSI 300。
+- 创业板或科创/科技代理。
+- Hang Seng Tech。
 
-Initial sector/theme groups:
+初始行业/主题组：
 
-- Semiconductors.
-- AI compute/data centers.
-- Power/utilities.
-- Grid equipment.
-- Nuclear power.
-- Oil and gas.
-- Gold/precious metals.
-- Banks.
-- Defense.
-- Innovative drugs/healthcare.
-- Nonferrous metals/copper.
-- Robotics/automation.
+- 半导体。
+- AI 算力/数据中心。
+- 电力/公用事业。
+- 电网设备。
+- 核电。
+- 油气。
+- 黄金/贵金属。
+- 银行。
+- 国防军工。
+- 创新药/医疗。
+- 有色金属/铜。
+- 机器人/自动化。
 
-Each sector/theme has region-level proxy bindings:
+每个行业/主题都有地区级代理资产绑定：
 
 ```text
-theme: Semiconductors
-US primary proxy: SMH
-US supporting proxies: SOXX, NVDA, AMD, MU, TSM
-CN/HK primary proxy: configured semiconductor ETF
-CN/HK supporting proxies: configured chip ETF and key listed companies
+theme: 半导体
+美国 primary proxy: SMH
+美国 supporting proxies: SOXX, NVDA, AMD, MU, TSM
+中国/香港 primary proxy: 配置的半导体 ETF
+中国/香港 supporting proxies: 配置的芯片 ETF 和重点上市公司
 ```
 
-Theme forecasts are displayed at group level, but price targets belong to the primary proxy. Supporting proxies help identify divergence and improve review quality.
+主题预测以组为单位展示，但价格目标属于 primary proxy。Supporting proxy 用来识别分化并提高复盘质量。
 
-## Market Data
+## 市场数据
 
-The first version uses free data sources with fallback:
+第一版使用免费数据源并带 fallback：
 
-- US stocks/ETFs and some global assets: yfinance primary, Stooq fallback.
-- China/HK assets and ETFs: AKShare primary, Stooq or later Eastmoney/Sina adapters as fallback.
-- Macro: FRED.
-- Crypto: CoinGecko primary, Binance market endpoints fallback.
-- Alpha Vantage: limited key-symbol validation due to free-tier limits.
+- 美股/ETF 和部分全球资产：yfinance 为主，Stooq fallback。
+- 中国/香港资产和 ETF：AKShare 为主，Stooq 或后续 Eastmoney/Sina adapter fallback。
+- 宏观：FRED。
+- 加密资产：CoinGecko 为主，Binance market endpoints fallback。
+- Alpha Vantage：受免费层限制，只做有限 key-symbol 校验。
 
-Market data records must include:
+市场数据记录必须包含：
 
-- Asset.
-- Price.
-- Currency.
-- Timestamp.
-- Source.
-- Whether the value is current, delayed, daily, or stale.
-- Adjusted/raw flag.
-- Fetch status.
-- Historical features.
+- 资产。
+- 价格。
+- 币种。
+- 时间戳。
+- 来源。
+- 数值是当前、延迟、日频还是陈旧。
+- adjusted/raw 标记。
+- 抓取状态。
+- 历史特征。
 
-Forecast runs save immutable prediction-base snapshots so later reviews use the same starting prices and historical context that the model saw.
+预测运行会保存不可变的预测基准快照，这样后续复盘使用的起始价格和历史上下文就与模型当时看到的一致。
 
-Refresh model:
+刷新模型：
 
-- Full asset universe: daily after major market closes.
-- Watchlist: intraday every 30-60 minutes during relevant market hours.
-- Forecast base snapshot: captured before each forecast run.
+- 全量资产池：主要市场收盘后每日刷新。
+- Watchlist：相关市场交易时段内每 30-60 分钟刷新。
+- 预测基准快照：每次预测运行前捕获。
 
-## Branch Isolation
+## 分支隔离
 
-The system has two fixed branches:
+系统有两条固定分支：
 
 ```text
 human_scored
 model_scored
 ```
 
-Shared inputs:
+共享输入：
 
-- Raw news.
-- Event clusters.
-- Neutral summaries/entities.
-- Asset universe.
-- Market snapshots.
-- Source metadata.
+- 原始新闻。
+- 事件簇。
+- 中性摘要/实体。
+- 资产池。
+- 市场快照。
+- 信息源元数据。
 
-Isolated data:
+隔离数据：
 
-- Event scores.
-- Selected forecast context.
-- Prompt input ordering.
-- Agent discussions.
-- Forecast outputs.
-- Target prices.
-- Evaluations.
+- 事件评分。
+- 被选中的预测上下文。
+- Prompt 输入排序。
+- Agent 讨论。
+- 预测输出。
+- 目标价。
+- 评估。
 
-All branch-specific records carry `branch_id`.
+所有分支专属记录都携带 `branch_id`。
 
-Human branch rules:
+人工分支规则：
 
-- Only manually scored event clusters with score greater than 0 can enter forecasts.
-- Score 0 means ignored.
-- Unscored event clusters never enter human branch forecasts.
-- User scores include importance, impact direction, impact horizons, related assets/themes, and optional notes.
+- 只有人工评分大于 0 的事件簇可以进入预测。
+- 分数 0 表示忽略。
+- 未评分事件簇永不进入人工分支预测。
+- 用户评分包括重要性、影响方向、影响周期、相关资产/主题和可选备注。
 
-Model branch rules:
+模型分支规则：
 
-- All event clusters are scored automatically.
-- The model scorer cannot read human scores.
-- The model branch selects events by model importance, novelty, time decay, and source metadata.
+- 所有事件簇都自动评分。
+- 模型评分器不能读取人工评分。
+- 模型分支按模型重要性、新颖性、时间衰减和来源元数据选择事件。
 
-## LLM Roles
+## LLM 角色
 
-The model pool is configurable by role:
+模型池按角色配置：
 
-- Auto scoring model.
-- Neutral extraction/summarization model.
-- Macro asset model.
-- Industry/sector model.
-- Market trading model.
-- Judge aggregation model.
+- 自动评分模型。
+- 中性抽取/摘要模型。
+- 宏观资产模型。
+- 行业/板块模型。
+- 市场交易模型。
+- Judge 聚合模型。
 
-Provider keys are loaded from environment/config files. The UI configures provider/model mapping, temperature, timeout, token limits, and enabled state.
+Provider key 从环境变量或配置文件加载。UI 配置 provider/model 映射、temperature、timeout、token limit 和 enabled 状态。
 
-Specialist roles:
+专家角色：
 
-- Macro asset model: rates, dollar, inflation, central banks, commodities, risk appetite, cross-asset transmission.
-- Industry/sector model: policy, supply chains, orders, inventory, margins, sector/company mapping.
-- Market trading model: price levels, volatility, flows, positioning, short-term catalysts, risk/reward.
-- Judge model: aggregates only the three specialist outputs and provided input data; it must not introduce new evidence.
+- 宏观资产模型：利率、美元、通胀、央行、大宗商品、风险偏好、跨资产传导。
+- 行业/板块模型：政策、供应链、订单、库存、利润率、行业/公司映射。
+- 市场交易模型：价格位、波动率、资金流、仓位、短期催化、风险收益比。
+- Judge 模型：只聚合三个专家输出和给定输入数据；不能引入新证据。
 
-## Forecast Workflow
+## 预测流程
 
-Each forecast run creates a branch-specific context:
+每次预测运行都会创建分支专属上下文：
 
-- Branch.
-- Prediction run.
-- Event snapshot.
-- Market snapshot.
-- Selected event clusters.
-- Asset universe.
-- Historical price features.
+- 分支。
+- 预测运行。
+- 事件快照。
+- 市场快照。
+- 选中的事件簇。
+- 资产池。
+- 历史价格特征。
 
-Discussion is structured, not free-form chat:
+讨论是结构化流程，不是自由聊天：
 
-1. Independent round: each specialist produces forecasts and reasoning.
-2. Review round: each specialist reviews the other two outputs and flags agreement, disagreement, omissions, and overreach.
-3. Revision round: each specialist updates forecasts.
-4. Judge round: the judge emits final structured forecasts.
+1. 独立轮：每个专家生成预测和理由。
+2. 评审轮：每个专家评审另外两个输出，标记一致、分歧、遗漏和过度推断。
+3. 修订轮：每个专家更新预测。
+4. Judge 轮：judge 输出最终结构化预测。
 
-Each final forecast is keyed by:
+每条最终预测由以下字段定位：
 
-- Branch.
-- Prediction run.
-- Asset group.
-- Region.
-- Horizon: 1W, 1M, or 3M.
+- 分支。
+- 预测运行。
+- 资产组。
+- 地区。
+- 周期：1W、1M 或 3M。
 
-Forecast output includes:
+预测输出包含：
 
-- Direction: bullish, bearish, neutral, volatile, or divergent.
-- Current price.
-- Base target.
-- Bull target.
-- Bear target.
-- Support levels.
-- Resistance levels.
-- Invalidation level or invalidation rules.
-- Confidence.
-- Linked event clusters.
-- Bull/base/bear scenario summaries.
-- Catalysts.
-- Invalidation signals.
-- Model disagreement summary.
+- 方向：bullish、bearish、neutral、volatile 或 divergent。
+- 当前价格。
+- 基准目标。
+- 多头目标。
+- 空头目标。
+- 支撑位。
+- 阻力位。
+- 失效位或失效规则。
+- 置信度。
+- 关联事件簇。
+- 多/基准/空情景摘要。
+- 催化因素。
+- 失效信号。
+- 模型分歧摘要。
 
-Target prices must be checked against historical volatility and recent high/low ranges. Large moves are allowed only when the model explains the event shock and confidence.
+目标价必须结合历史波动率和近期高低点区间检查。大幅波动预测是允许的，但模型必须解释事件冲击和置信度。
 
 ## UI
 
-The UI is a research dashboard.
+UI 是研究仪表盘。
 
-Navigation:
+导航：
 
-- Overview.
-- Information Sources.
-- News Pool.
-- Human Scoring.
-- Model Scoring.
-- Forecast Matrix.
-- Asset Detail.
-- Branch Comparison.
-- Review/Evaluation.
-- Model Config.
-- System Status.
+- Overview。
+- Information Sources。
+- News Pool。
+- Human Scoring。
+- Model Scoring。
+- Forecast Matrix。
+- Asset Detail。
+- Branch Comparison。
+- Review/Evaluation。
+- Model Config。
+- System Status。
 
-Key pages:
+核心页面：
 
-- Overview: system health, recent jobs, latest branch runs, unscored event count, failed sources, model failures, and market heat map.
-- Information Sources: add/edit/test sources and inspect fetch logs.
-- News Pool: event clusters with member articles and neutral summaries.
-- Human Scoring: fast 0-5 scoring plus advanced impact fields.
-- Model Scoring: model scores, confidence, affected assets, reasons, and rerun controls.
-- Forecast Matrix: asset rows and US/CN/global 1W/1M/3M columns with branch toggle.
-- Asset Detail: price snapshot, targets, levels, scenarios, evidence, agent rounds, and proxy divergence.
-- Branch Comparison: explain human-vs-model differences by asset and by event.
-- Review/Evaluation: direction hit rate, target error, branch comparison, and manual event annotations.
-- Model Config: role-to-model mapping and connection tests.
-- System Status: job queue, failed jobs, source health, model logs, market source status, service/log paths.
+- Overview：系统健康、近期任务、最新分支运行、未评分事件数量、失败来源、模型失败和市场热力图。
+- Information Sources：添加、编辑、测试来源，并查看抓取日志。
+- News Pool：带成员文章和中性摘要的事件簇。
+- Human Scoring：快速 0-5 评分和高级影响字段。
+- Model Scoring：模型评分、置信度、受影响资产、理由和重新运行控制。
+- Forecast Matrix：资产行，以及 US/CN/global 的 1W/1M/3M 列，并带分支切换。
+- Asset Detail：价格快照、目标价、关键位、情景、证据、agent 轮次和代理资产分化。
+- Branch Comparison：按资产和事件解释人工分支与模型分支差异。
+- Review/Evaluation：方向命中率、目标价误差、分支对比和人工事件标注。
+- Model Config：角色到模型的映射和连接测试。
+- System Status：任务队列、失败任务、来源健康度、模型日志、市场源状态、服务/日志路径。
 
-The UI should be dense, restrained, and work-focused. It should not be a landing page or chat-first surface.
+UI 应该是密集、克制、工作导向的。它不应该是 landing page，也不应该是 chat-first 界面。
 
-## Database Model
+## 数据库模型
 
-Core tables:
+核心表：
 
-- `users`.
-- `information_sources`.
-- `raw_news`.
-- `event_clusters`.
-- `event_cluster_members`.
-- `asset_groups`.
-- `assets`.
-- `market_snapshots`.
-- `market_prices`.
-- `branches`.
-- `event_scores`.
-- `prediction_runs`.
-- `agent_outputs`.
-- `asset_forecasts`.
-- `forecast_scenarios`.
-- `forecast_evaluations`.
-- `model_configs`.
-- `jobs`.
+- `users`。
+- `information_sources`。
+- `raw_news`。
+- `event_clusters`。
+- `event_cluster_members`。
+- `asset_groups`。
+- `assets`。
+- `market_snapshots`。
+- `market_prices`。
+- `branches`。
+- `event_scores`。
+- `prediction_runs`。
+- `agent_outputs`。
+- `asset_forecasts`。
+- `forecast_scenarios`。
+- `forecast_evaluations`。
+- `model_configs`。
+- `jobs`。
 
-Important linking fields:
+重要关联字段：
 
-- `branch_id`.
-- `prediction_run_id`.
-- `market_snapshot_id`.
-- Event cluster IDs included in a run.
+- `branch_id`。
+- `prediction_run_id`。
+- `market_snapshot_id`。
+- 运行中包含的 event cluster ID。
 
-## Background Jobs
+## 后台任务
 
-The scheduler creates jobs; the worker executes jobs. Job types:
+Scheduler 创建任务；worker 执行任务。任务类型：
 
-- `fetch_source`.
-- `extract_article`.
-- `cluster_events`.
-- `auto_score_events`.
-- `refresh_market_snapshot`.
-- `run_prediction`.
-- `evaluate_forecasts`.
+- `fetch_source`。
+- `extract_article`。
+- `cluster_events`。
+- `auto_score_events`。
+- `refresh_market_snapshot`。
+- `run_prediction`。
+- `evaluate_forecasts`。
 
-Jobs store:
+任务存储：
 
-- Type.
-- Status.
-- Priority.
-- Payload.
-- Scheduled time.
-- Start/end times.
-- Error message.
-- Retry count.
+- 类型。
+- 状态。
+- 优先级。
+- Payload。
+- 计划时间。
+- 开始/结束时间。
+- 错误消息。
+- 重试次数。
 
-MVP can use a database-backed queue. Redis/RQ/Celery can be added when job volume requires it.
+MVP 可以使用基于数据库的队列。当任务量需要时，再加入 Redis/RQ/Celery。
 
-## Review and Evaluation
+## 复盘与评估
 
-MVP evaluation:
+MVP 评估：
 
-- Pull actual proxy prices for forecast horizons.
-- Compare direction against realized move.
-- Compare target prices against realized prices.
-- Show branch-level and asset-level target error.
-- Let the user manually mark qualitative event outcomes or invalidation triggers.
+- 拉取预测周期对应的代理资产实际价格。
+- 将方向与实际涨跌比较。
+- 将目标价与实际价格比较。
+- 展示分支级和资产级目标价误差。
+- 允许用户手动标注定性事件结果或失效触发。
 
-Later evaluation:
+后续评估：
 
-- Direction hit rate by branch, asset, horizon, source type, and model role.
-- Target price error distributions.
-- Overconfidence detection.
-- Human-vs-model scoring quality by news category.
+- 按分支、资产、周期、来源类型和模型角色统计方向命中率。
+- 目标价误差分布。
+- 过度自信检测。
+- 按新闻类别对比人工评分与模型评分质量。
 
-## System Configuration
+## 系统配置
 
-Example `/etc/asset-worldline/config.env`:
+示例 `/etc/asset-worldline/config.env`：
 
 ```text
 DATABASE_URL=
@@ -472,65 +472,64 @@ FRED_API_KEY=
 ALPHA_VANTAGE_API_KEY=
 ```
 
-## MVP Milestones
+## MVP 里程碑
 
-### MVP 1: Forecast Loop
+### MVP 1：预测闭环
 
-- Admin login.
-- Information source CRUD and test fetch.
-- RSS/list/article/PDF extraction.
-- News pool and event clusters.
-- Human scoring.
-- Model scoring.
-- Asset universe and proxy config.
-- Market snapshots from free sources.
-- Model role config.
-- Human and model branch forecast runs.
-- Forecast matrix.
-- Asset details.
-- Branch comparison.
-- Basic evaluation.
-- systemd deployment files.
+- 管理员登录。
+- 信息源 CRUD 和测试抓取。
+- RSS/list/article/PDF 抽取。
+- 新闻池和事件簇。
+- 人工评分。
+- 模型评分。
+- 资产池和代理资产配置。
+- 免费来源市场快照。
+- 模型角色配置。
+- 人工分支和模型分支预测运行。
+- 预测矩阵。
+- 资产详情。
+- 分支对比。
+- 基础评估。
+- systemd 部署文件。
 
-### MVP 2: Quality and Review
+### MVP 2：质量和复盘
 
-- Stronger evaluation dashboards.
-- Target error and hit-rate analytics.
-- Prediction invalidation tracking.
-- Better source diagnostics.
-- Model scoring quality reports.
-- Branch performance by asset and horizon.
+- 更强的评估仪表盘。
+- 目标价误差和命中率分析。
+- 预测失效跟踪。
+- 更好的来源诊断。
+- 模型评分质量报告。
+- 按资产和周期统计分支表现。
 
-### MVP 3: Research Desk Features
+### MVP 3：研究台功能
 
-- Site-specific adapters.
-- Better PDF/research parsing.
-- Price trigger alerts.
-- Feishu/email notifications.
-- More market data providers.
-- Forecast report export.
-- Multi-user permissions.
+- 站点专属 adapter。
+- 更好的 PDF/研报解析。
+- 价格触发提醒。
+- 飞书/email 通知。
+- 更多市场数据 provider。
+- 预测报告导出。
+- 多用户权限。
 
-## Reuse Guidance
+## 复用建议
 
-Create a new project rather than modifying `TradingAgents` or existing content tools directly.
+创建一个新项目，而不是直接修改 `TradingAgents` 或现有内容工具。
 
-Useful references from local projects:
+本地项目中可参考的内容：
 
-- `ai_hotspot_content_studio`: fetcher pattern, HTTP/browser helpers, AI client ideas, local web workflow.
-- `crypto_hotspot_writer`: multi-source ingestion and ranking ideas.
-- `social_media_ai_monitor`: monitor service and notification patterns.
-- `TradingAgents`: multi-agent role and debate structure, not as a direct code base.
+- `ai_hotspot_content_studio`：fetcher 模式、HTTP/browser helper、AI client 思路、本地 Web 工作流。
+- `crypto_hotspot_writer`：多来源接入和排序思路。
+- `social_media_ai_monitor`：监控服务和通知模式。
+- `TradingAgents`：多 agent 角色与 debate 结构，但不要作为直接代码基础。
 
-The new project should own its database schema, branch isolation model, forecast workflow, UI, and systemd deployment.
+新项目应该拥有自己的数据库 schema、分支隔离模型、预测工作流、UI 和 systemd 部署。
 
-## Open Implementation Choices
+## 开放实现选择
 
-These are allowed to vary during implementation without changing the product design:
+这些选择允许在实现中调整，不需要修改产品设计：
 
-- Whether frontend static assets are served by FastAPI or directly by Nginx.
-- Whether the first worker uses database polling or a lightweight queue library.
-- Exact UI component library.
-- Exact first-pass sector proxy symbols, as long as theme-to-primary-proxy mapping exists.
-- Exact market-data provider order per asset type, as long as source metadata is saved.
-
+- 前端静态资源由 FastAPI 提供，还是直接由 Nginx 提供。
+- 第一版 worker 使用数据库轮询，还是轻量 queue library。
+- 具体 UI 组件库。
+- 第一版行业代理资产的精确 symbol，只要存在 theme-to-primary-proxy 映射。
+- 各资产类型的精确市场数据 provider 顺序，只要保存来源元数据。

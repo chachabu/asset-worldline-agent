@@ -1,45 +1,45 @@
-# Architecture
+# 架构
 
-Asset Worldline Agent is a private research dashboard for cross-asset scenario forecasting. It is not an automated trading system.
+Asset Worldline Agent 是一个用于跨资产情景预测的私有研究仪表盘。它不是自动交易系统。
 
-## Current Implementation State
+## 当前实现状态
 
-Implemented now:
+已经实现：
 
-- Admin session login.
-- Information-source CRUD and test fetch.
-- Database schema for raw news, event clusters, branch scores, market snapshots, model outputs, and forecasts.
-- Market snapshot jobs through AKShare, yfinance, Stooq, and CoinGecko fallback paths.
-- LLM provider calls with structured fallback output.
-- Branch-isolated prediction runs for `human_scored` and `model_scored`.
-- Forecast matrix and system job UI.
+- 管理员 session 登录。
+- 信息源 CRUD 和测试抓取。
+- 数据库 schema，覆盖原始新闻、事件簇、分支评分、市场快照、模型输出和预测。
+- 通过 AKShare、yfinance、Stooq、CoinGecko fallback 路径执行市场快照任务。
+- LLM provider 调用，并在不可用时生成结构化 fallback 输出。
+- 针对 `human_scored` 与 `model_scored` 的分支隔离预测运行。
+- 预测矩阵和系统任务 UI。
 
-Not wired yet:
+尚未接入：
 
-- Scheduled article persistence from configured sources.
-- Raw-news deduplication and event clustering jobs.
-- PDF persistence and full extraction pipeline.
-- Rich source-health dashboards.
+- 从已配置来源定时抓取并持久化文章。
+- 原始新闻去重和事件聚类任务。
+- PDF 持久化与完整抽取流水线。
+- 更丰富的信息源健康度仪表盘。
 
-The diagrams below show the intended architecture. Components marked as not wired above exist as schema, UI, or test-fetch scaffolding but are not complete production ingestion flows yet.
+下面的图展示的是目标架构。上面标记为尚未接入的组件，当前可能只具备 schema、UI 或测试抓取脚手架，还不是完整的生产级入库流程。
 
-## System Diagram
+## 系统图
 
 ```mermaid
 flowchart LR
-    User[Admin User] --> Nginx[Nginx Reverse Proxy]
-    Nginx --> Web[FastAPI Web/API Service]
-    Web --> Frontend[React/Vite Static UI]
+    User[管理员用户] --> Nginx[Nginx 反向代理]
+    Nginx --> Web[FastAPI Web/API 服务]
+    Web --> Frontend[React/Vite 静态 UI]
     Web --> DB[(PostgreSQL)]
-    Web --> Jobs[Jobs Table]
+    Web --> Jobs[Jobs 表]
 
-    Scheduler[Scheduler Service] --> Jobs
-    Worker[Worker Service] --> Jobs
+    Scheduler[Scheduler 服务] --> Jobs
+    Worker[Worker 服务] --> Jobs
     Worker --> DB
 
-    Worker -. planned fetch_source .-> Sources[Configured Websites/RSS/PDF]
-    Worker --> MarketData[Market Data Providers]
-    Worker --> LLMs[LLM Providers]
+    Worker -. planned fetch_source .-> Sources[配置的网站/RSS/PDF]
+    Worker --> MarketData[市场数据 Provider]
+    Worker --> LLMs[LLM Provider]
 
     MarketData --> AKShare[AKShare]
     MarketData --> YFinance[yfinance]
@@ -51,40 +51,40 @@ flowchart LR
     LLMs --> Gemini[Gemini]
 ```
 
-## Runtime Services
+## 运行时服务
 
-The production deployment uses three systemd services:
+生产部署使用三个 systemd 服务：
 
-| Service | Entry Point | Purpose |
+| 服务 | 入口 | 用途 |
 |---|---|---|
-| `asset-worldline-web.service` | `uvicorn app.main:app` | Serves API, sessions, and built frontend assets. |
-| `asset-worldline-worker.service` | `python -m app.workers.worker` | Executes queued jobs. Market snapshots and prediction runs are wired; source fetch is still a stub. |
-| `asset-worldline-scheduler.service` | `python -m app.workers.scheduler` | Enqueues recurring source-fetch jobs for the planned ingestion pipeline. |
+| `asset-worldline-web.service` | `uvicorn app.main:app` | 提供 API、session 和构建后的前端静态资源。 |
+| `asset-worldline-worker.service` | `python -m app.workers.worker` | 执行队列任务。市场快照和预测运行已经接入；source fetch 仍是 stub。 |
+| `asset-worldline-scheduler.service` | `python -m app.workers.scheduler` | 为计划中的入库流水线创建周期性 source-fetch 任务。 |
 
-PostgreSQL stores all durable state. Nginx proxies public traffic to FastAPI on `127.0.0.1:8000`.
+PostgreSQL 保存所有持久状态。Nginx 将公网流量代理到 `127.0.0.1:8000` 上的 FastAPI。
 
-## Core Components
+## 核心组件
 
 ```mermaid
 flowchart TB
     subgraph API[FastAPI API]
         Auth[Session Auth]
-        SourcesAPI[Information Sources API]
-        NewsAPI[News and Scoring API]
-        AssetsAPI[Asset Universe API]
-        ForecastAPI[Forecast and Jobs API]
-        ModelAPI[Model Config API]
+        SourcesAPI[信息源 API]
+        NewsAPI[新闻与评分 API]
+        AssetsAPI[资产池 API]
+        ForecastAPI[预测与任务 API]
+        ModelAPI[模型配置 API]
     end
 
-    subgraph Services[Backend Services]
-        Fetcher[Source Fetcher: test fetch wired, persistence planned]
+    subgraph Services[后端服务]
+        Fetcher[Source Fetcher: 测试抓取已接入, 持久化待实现]
         Market[MarketDataService]
         LLM[LLMClient]
         Predictor[PredictionService]
         Runner[JobRunner]
     end
 
-    subgraph DB[PostgreSQL Tables]
+    subgraph DB[PostgreSQL 表]
         Users[users]
         SourceTables[information_sources/raw_news/event_clusters]
         AssetTables[asset_groups/assets/market_snapshots/market_prices]
@@ -101,67 +101,67 @@ flowchart TB
     Services --> DB
 ```
 
-## Forecast Data Flow
+## 预测数据流
 
 ```mermaid
 sequenceDiagram
-    participant Admin as Admin UI
+    participant Admin as 管理端 UI
     participant API as FastAPI
     participant DB as PostgreSQL
     participant Worker as Worker
     participant Market as MarketDataService
     participant LLM as LLMClient
 
-    Admin->>API: Score events / trigger run
-    API->>DB: Store source, score, or job
-    Worker->>DB: Claim pending job
-    Worker->>Market: Refresh prediction-base market snapshot
-    Market->>DB: Save market_snapshot and market_prices
-    Worker->>DB: Load branch-specific event_scores
-    Worker->>LLM: Specialist and judge prompts
-    LLM-->>Worker: JSON forecast output or structured fallback
-    Worker->>DB: Save agent_outputs, asset_forecasts, forecast_scenarios
-    Admin->>API: Load forecast matrix and details
-    API->>DB: Query latest forecasts
+    Admin->>API: 给事件评分 / 触发运行
+    API->>DB: 保存来源、评分或任务
+    Worker->>DB: 领取 pending 任务
+    Worker->>Market: 刷新预测基准市场快照
+    Market->>DB: 保存 market_snapshot 和 market_prices
+    Worker->>DB: 加载分支专属 event_scores
+    Worker->>LLM: 专家模型和 judge prompt
+    LLM-->>Worker: JSON 预测输出或结构化 fallback
+    Worker->>DB: 保存 agent_outputs、asset_forecasts、forecast_scenarios
+    Admin->>API: 加载预测矩阵和详情
+    API->>DB: 查询最新预测
 ```
 
-## Branch Isolation
+## 分支隔离
 
-There are two fixed branches:
+系统有两条固定分支：
 
-- `human_scored`: only manually scored event clusters with `importance > 0` enter forecasts.
-- `model_scored`: event clusters are scored automatically by the model scorer.
+- `human_scored`：只有人工评分且 `importance > 0` 的事件簇可以进入预测。
+- `model_scored`：事件簇由模型评分器自动评分。
 
-Shared data:
+共享数据：
 
-- Raw news.
-- Event clusters.
-- Neutral summaries and entities.
-- Asset universe.
-- Market snapshots.
-- Source metadata.
+- 原始新闻。
+- 事件簇。
+- 中性摘要和实体。
+- 资产池。
+- 市场快照。
+- 信息源元数据。
 
-Branch-specific data:
+分支专属数据：
 
-- `event_scores`.
-- `prediction_runs`.
-- `agent_outputs`.
-- `asset_forecasts`.
-- `forecast_scenarios`.
-- `forecast_evaluations`.
+- `event_scores`。
+- `prediction_runs`。
+- `agent_outputs`。
+- `asset_forecasts`。
+- `forecast_scenarios`。
+- `forecast_evaluations`。
 
-Every branch-specific table carries `branch_id` directly or through `prediction_run_id`.
+每张分支专属表都直接携带 `branch_id`，或通过 `prediction_run_id` 关联到分支。
 
 ```mermaid
 flowchart LR
     Raw[raw_news] --> Clusters[event_clusters]
-    Clusters --> Neutral[Neutral extraction]
+    Clusters --> Neutral[中性抽取]
 
-    Neutral --> HumanQueue[Human scoring queue]
+    Neutral --> HumanQueue[人工评分队列]
     HumanQueue --> HumanScores[event_scores: human_scored]
     HumanScores --> HumanRun[prediction_run: human_scored]
 
-    Neutral --> ModelScorer[Model scorer]
+    Neutral --> ModelScorer[模型评分器]
     ModelScorer --> ModelScores[event_scores: model_scored]
     ModelScores --> ModelRun[prediction_run: model_scored]
 
@@ -169,48 +169,48 @@ flowchart LR
     ModelRun --> ModelForecasts[asset_forecasts: model_scored]
 ```
 
-## Forecast Workflow
+## 预测流程
 
-`PredictionService` runs forecasts in four phases:
+`PredictionService` 分四个阶段运行预测：
 
-1. Ensure a recent market snapshot exists.
-2. For `model_scored`, create missing automatic event scores.
-3. Run three specialist roles:
+1. 确保存在近期市场快照。
+2. 对 `model_scored` 分支创建缺失的自动事件评分。
+3. 运行三个专家角色：
    - `macro_asset_model`
    - `industry_sector_model`
    - `market_trading_model`
-4. Run `judge_aggregator` and persist final forecasts.
+4. 运行 `judge_aggregator` 并持久化最终预测。
 
-If a provider is disabled, missing an API key, or returns invalid JSON, `LLMClient` stores a structured fallback response instead of failing the whole run. This keeps the job auditable and lets UI flows work before production model keys are configured.
+如果 provider 被禁用、缺少 API key 或返回无效 JSON，`LLMClient` 会保存结构化 fallback 响应，而不是让整次任务失败。这可以保持任务可审计，也能在生产模型 key 配置前先验证 UI 流程。
 
-## Market Data
+## 市场数据
 
-`MarketDataService` attempts free providers in this order:
+`MarketDataService` 按以下顺序尝试免费 provider：
 
-- CN/HK assets: AKShare first, then yfinance/Stooq fallback.
-- US/global assets: yfinance first, then Stooq fallback.
-- Crypto assets: CoinGecko first.
+- 中国/香港资产：优先 AKShare，然后 fallback 到 yfinance/Stooq。
+- 美国/全球资产：优先 yfinance，然后 fallback 到 Stooq。
+- 加密资产：优先 CoinGecko。
 
-Each `market_price` stores:
+每条 `market_price` 保存：
 
-- Price and currency.
-- `as_of` timestamp.
-- Provider source.
-- Fetch status.
-- Historical features such as recent returns, 3-month high/low, and volatility where available.
+- 价格和币种。
+- `as_of` 时间戳。
+- Provider 来源。
+- 抓取状态。
+- 可用时保存近期收益、3 个月高低点、波动率等历史特征。
 
-## Frontend
+## 前端
 
-The React/Vite frontend currently exposes:
+当前 React/Vite 前端提供：
 
-- Login.
-- Overview.
-- Information sources and test fetch.
-- News pool.
-- Human scoring.
-- Asset universe.
-- Forecast matrix.
-- Model configuration.
-- System jobs and manual market snapshot trigger.
+- 登录。
+- Overview。
+- 信息源和测试抓取。
+- News pool。
+- 人工评分。
+- 资产池。
+- 预测矩阵。
+- 模型配置。
+- 系统任务和手动市场快照触发。
 
-FastAPI serves `frontend/dist` in production when the frontend is built.
+生产环境构建前端后，FastAPI 会提供 `frontend/dist` 静态资源。
