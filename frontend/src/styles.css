@@ -282,6 +282,7 @@ td {
 
 .primary,
 .secondary,
+.danger,
 .score-button {
   min-height: 38px;
   border-radius: 6px;
@@ -311,6 +312,12 @@ button:disabled {
   color: #1f2a3d;
   background: #ffffff;
   border-color: #cdd5e1;
+}
+
+.danger {
+  color: #b42318;
+  background: #fff7f7;
+  border-color: #fecdca;
 }
 
 .score-button {

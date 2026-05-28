@@ -13,7 +13,7 @@ import {
   Target,
 } from 'lucide-react';
 import { FormEvent, ReactNode, useEffect, useMemo, useState } from 'react';
-import { apiGet, apiPost, apiPut } from './api/client';
+import { apiDelete, apiGet, apiPost, apiPut } from './api/client';
 
 type User = { id: number; username: string };
 type NavKey =
@@ -323,6 +323,7 @@ function SourcesPage() {
   const [form, setForm] = useState(emptySource);
   const [candidates, setCandidates] = useState<SourceCandidate[]>([]);
   const [message, setMessage] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   const load = () => apiGet<InformationSource[]>('/sources').then(setSources);
 
@@ -333,6 +334,7 @@ function SourcesPage() {
   async function createSource(event: FormEvent) {
     event.preventDefault();
     setMessage(null);
+    setError(null);
     await apiPost('/sources', form);
     setForm(emptySource);
     setMessage('信息源已保存');
@@ -341,12 +343,28 @@ function SourcesPage() {
 
   async function testSource() {
     setMessage(null);
+    setError(null);
     const result = await apiPost<SourceCandidate[]>('/sources/test', {
       entry_url: form.entry_url,
       fetch_mode: form.fetch_mode,
       selectors: form.selectors,
     });
     setCandidates(result);
+  }
+
+  async function deleteSource(source: InformationSource) {
+    if (!window.confirm(`确定删除信息源「${source.name}」吗？`)) {
+      return;
+    }
+    setMessage(null);
+    setError(null);
+    try {
+      await apiDelete(`/sources/${source.id}`);
+      setMessage('信息源已删除');
+      await load();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '删除失败');
+    }
   }
 
   return (
@@ -393,6 +411,7 @@ function SourcesPage() {
           </button>
         </form>
         {message && <div className="success">{message}</div>}
+        {error && <div className="error">{error}</div>}
         {candidates.length > 0 && (
           <div className="table-wrap compact-table">
             <table>
@@ -432,6 +451,7 @@ function SourcesPage() {
                 <th>频率</th>
                 <th>状态</th>
                 <th>URL</th>
+                <th>操作</th>
               </tr>
             </thead>
             <tbody>
@@ -445,8 +465,14 @@ function SourcesPage() {
                     <Badge value={source.last_status} />
                   </td>
                   <td className="url-cell">{source.entry_url}</td>
+                  <td>
+                    <button className="danger" type="button" onClick={() => deleteSource(source)}>
+                      删除
+                    </button>
+                  </td>
                 </tr>
               ))}
+              {sources.length === 0 && <EmptyRow columns={7} text="暂无信息源" />}
             </tbody>
           </table>
         </div>
